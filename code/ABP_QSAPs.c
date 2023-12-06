@@ -38,25 +38,26 @@ typedef struct particle {
 #include "ABP_QSAPs_functions.c"
 
 int main(int argc, char* argv[]) {
-    printf("Starting up...");
     char* command_line_output; // pointer to start of string
     param parameters; // struct
     inputparam input_parameters; // struct
     particle* Particles; // pointer to start of array
-    ReadInputParameters(argc, argv, command_line_output, &parameters, &input_parameters);
+    ReadInputParameters(argc, argv, &command_line_output, &parameters, &input_parameters);
     AssignValues(&parameters, input_parameters, &Particles);
     StoreInputParameters(argc, argv, parameters, input_parameters, command_line_output);
 
     InitialConditions(Particles, parameters);
 
     double t = 0;
+    StorePositions(t, &parameters, Particles);
     while (t < parameters.final_time) {
         UpdateParticles(Particles, parameters);
         t += parameters.dt;
-        StorePositions(t, parameters, Particles);
+        StorePositions(t, &parameters, Particles);
     }
 
     free(Particles);
+    free(command_line_output);
     fclose(parameters.data_file);
 
     return 1;

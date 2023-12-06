@@ -11,52 +11,52 @@ This function read the command line and check it has correct number of paramters
 Then it stores these parameters
 */
 
-void ReadInputParameters(int argc, char* argv[], char* command_line_output, param* parameters, inputparam* input_parameters){
+void ReadInputParameters(int argc, char* argv[], char** command_line_output, param* parameters, inputparam* input_parameters){
     // normally pass by value. by using pointers, pass by reference
     // always one parameter: the program's name
     int number_of_input_parameters = 1;
     int i;
     // command_line_output is a string that contains "usage: " and the correct structure of the command line
-    command_line_output = (char*)malloc(1000); // Adjust the size as needed
-    if (command_line_output == NULL) {
+    *command_line_output = (char*)malloc(1000); // Adjust the size as needed
+    if (*command_line_output == NULL) {
         printf("Memory allocation for command_line_output failed.\n");
         exit(3);
     }
 
-    command_line_output = "usage: ";
-    strcat(command_line_output, argv[0]);
+    strcpy(*command_line_output, "usage: ");
+    strcat(*command_line_output, argv[0]);
 
-    strcat(command_line_output, "dt ");
+    strcat(*command_line_output, " dt ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "N ");
+    strcat(*command_line_output, "N ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "v ");
+    strcat(*command_line_output, "v ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "FileName ");
+    strcat(*command_line_output, "FileName ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "FinalTime ");
+    strcat(*command_line_output, "FinalTime ");
     number_of_input_parameters++;
     
-    strcat(command_line_output, "NextStoreTime ");
+    strcat(*command_line_output, "NextStoreTime ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "StoreTimeInterval ");
+    strcat(*command_line_output, "StoreTimeInterval ");
     number_of_input_parameters++;
 
-    strcat(command_line_output, "Dr ");
+    strcat(*command_line_output, "Dr ");
     number_of_input_parameters++;
 
 #ifdef _MT
-    strcat(command_line_output, "seed ");
+    strcat(*command_line_output, "seed ");
     number_of_input_parameters++;
 #endif
 
     if(argc != number_of_input_parameters){
-        printf("%s\n", command_line_output);
+        printf("%s\n", *command_line_output);
         exit(2); // Exit the whole program and give a different value compared to 1
     }
     // Now we know the number of params is correct, assign values
@@ -131,16 +131,16 @@ void UpdateParticles(particle* Particles, param parameters){
     }
 }
 
-void StorePositions(double t, param parameters, particle* Particles){
+void StorePositions(double t, param *parameters, particle* Particles){
     long i;
-    if (t>parameters.next_store_time){
-        for (i=0;i<parameters.N;i++){
-            fprintf(parameters.data_file,"%lg \t %ld \t %lg \t %lg \t %lg \t", \
+    if (t >= parameters[0].next_store_time){
+        for (i=0;i<parameters[0].N;i++){
+            fprintf(parameters[0].data_file,"%lg \t %ld \t %lg \t %lg \t %lg \t", \
                     t,i,Particles[i].x,Particles[i].y,Particles[i].theta);
         }
-        fprintf(parameters.data_file, "\n");
+        fprintf(parameters[0].data_file, "\n");
+    parameters[0].next_store_time += parameters[0].store_time_interval;
     }
-    parameters.next_store_time += parameters.store_time_interval;
     
-    fflush(parameters.data_file);
+    fflush(parameters[0].data_file);
 }
