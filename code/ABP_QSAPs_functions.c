@@ -17,7 +17,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     int number_of_input_parameters = 1;
     int i;
     // command_line_output is a string that contains "usage: " and the correct structure of the command line
-    *command_line_output = (char*)malloc(1000); // Adjust the size as needed
+    *command_line_output = (char*)malloc(1000);
     if (*command_line_output == NULL) {
         printf("Memory allocation for command_line_output failed.\n");
         exit(3);
@@ -33,6 +33,12 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     number_of_input_parameters++;
 
     strcat(*command_line_output, "v ");
+    number_of_input_parameters++;
+
+    strcat(*command_line_output, "Lx ");
+    number_of_input_parameters++;
+
+    strcat(*command_line_output, "Ly ");
     number_of_input_parameters++;
 
     strcat(*command_line_output, "FileName ");
@@ -64,6 +70,8 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].dt = strtod(argv[i],NULL); i++; // parameters[1] would be next block in memory, meaningless
     parameters[0].N = (long) strtod(argv[i], NULL); i++;
     parameters[0].v = strtod(argv[i], NULL); i++;
+    parameters[0].Lx = strtod(argv[i], NULL); i++;
+    parameters[0].Ly = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].name , "%s", argv[i]); i++;
     parameters[0].final_time = strtod(argv[i], NULL); i++;
     parameters[0].next_store_time = strtod(argv[i], NULL); i++;
@@ -111,8 +119,8 @@ void InitialConditions(particle* Particles, param parameters){
     // not modifying Particles, just where they point to, so don't need pointers
     long i;
     for (i=0; i<parameters.N; i++){
-        Particles[i].x = 2*(-.5+genrand64_real3());
-        Particles[i].y = 2*(-.5+genrand64_real3());
+        Particles[i].x = parameters.Lx*(-.5+genrand64_real3()); // From -Lx/2 to Lx/2
+        Particles[i].y = parameters.Ly*(-.5+genrand64_real3()); // From -Ly/2 to Ly/2
         Particles[i].theta = 2*M_PI*genrand64_real3(); //M_PI calls Pi in C
     }
 }
@@ -127,7 +135,18 @@ void UpdateParticles(particle* Particles, param parameters){
         if (Particles[i].theta>2*M_PI)
             Particles[i].theta -= 2*M_PI;
         if (Particles[i].theta<0)
-            Particles[i].theta += 2*M_PI;        
+            Particles[i].theta += 2*M_PI;
+
+        if (Particles[i].x>parameters.Lx/2)
+            Particles[i].x -= parameters.Lx;
+        if (Particles[i].x<-parameters.Lx/2)
+            Particles[i].x += parameters.Lx;
+
+        if (Particles[i].y>parameters.Ly/2)
+            Particles[i].y -= parameters.Ly;
+        if (Particles[i].y<-parameters.Ly/2)
+            Particles[i].y += parameters.Ly;
+
     }
 }
 
