@@ -9,7 +9,7 @@ def plot_arrow(ax, x, y, theta, scale=0.3):
     ax.arrow(x-dx/2, y-dy/2, dx, dy, width=0.02, color='C0')
 
 def plot_point(ax, x, y):
-    ax.plot(x, y, marker='.', ms=1, c='C0')
+    ax.plot(x, y, marker='.', ms=1)
 
 name = sys.argv[1]
 param_file = name + '_param'
@@ -22,10 +22,7 @@ with open(param_file, 'r') as f:
     params = {var: value for (var, value) in zip(params_info[2:], params_values[1:])}
 
 N = int(params['N'])
-v_max = params['v_max']
-v_min = params['v_min']
-rho_m = params['rho_m']
-r0 = params['KernelWidth']
+v = params['v']
 Dr = params['Dr']
 Lx = float(params['Lx'])
 Ly = float(params['Ly'])
@@ -37,13 +34,12 @@ if not os.path.exists(video_folder):
 
 with open(data_file, 'r') as f:
     os.chdir(video_folder)
-    counter = 0
     for line in f:
         # One time
         data = line.split()
         t = float(data[0])
-        fig, ax = plt.subplots(figsize = (6,6))
-        ax.set_title(f'$N={N}, v_{{max}}={v_max}, v_{{min}}={v_min}, \\rho_m={rho_m}, r_0={r0}, Dr={Dr}, t={t:.2f}$')
+        fig, ax = plt.subplots(figsize = (Lx, Ly))
+        ax.set_title(f'$N={N}, v={v}, Dr={Dr}, t={t:.2f}$')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_xlim(-Lx/2,Lx/2)
@@ -52,9 +48,8 @@ with open(data_file, 'r') as f:
             x = float(data[i*5+2])
             y = float(data[i*5+3])
             theta = float(data[i*5+4])
-            # plot_arrow(ax, x, y, theta)
-            plot_point(ax, x, y)
+            plot_arrow(ax, x, y, theta)
+            # plot_point(ax, x, y)
         assert i==N-1, str(i) + ' ' + str(N) # sanity check
-        plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(name + f't={t:.2f}.png', dpi=300, bbox_inches='tight')
         plt.close()
-        counter += 1

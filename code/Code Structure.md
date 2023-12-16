@@ -27,3 +27,6 @@ int * titi
 space not important
 can read as titi is a pointer to an int, or * titi is an int
 Can manipulate as array: * (titi+1) = titi[1]
+
+
+ffmpeg -pattern_type glob -i "interacting_test_video/*.png" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p interacting_text_video.mp4

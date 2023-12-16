@@ -15,9 +15,14 @@ store parameters used in the loop
 typedef struct param {
     double dt;
     long N;
-    double v;
     double Lx;
     double Ly;
+    double rho_m;
+    double v_max;
+    double v_min;
+    double (*kernel)(double);
+    double kernel_width;
+    double kernel_normalization;
     double final_time;
     double next_store_time;
     double store_time_interval;
@@ -32,6 +37,7 @@ Store parameters used only at the beginning
 typedef struct inputparam {
     char name[1000];
     double Dr;
+    char kernel_name[10];
 #ifdef _MT
     long long seed;
 #endif
@@ -49,7 +55,8 @@ int main(int argc, char* argv[]) {
     char* command_line_output; // pointer to start of string
     param parameters; // struct
     inputparam input_parameters; // struct
-    particle* Particles; // pointer to start of array
+    particle* particles; // pointer to start of array
+    double* local_densities;
     /*
     Read command line input into parameters and input_parameters
     */
@@ -57,7 +64,7 @@ int main(int argc, char* argv[]) {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &Particles);
+    AssignValues(&parameters, input_parameters, &particles, &local_densities);
     /*
     Write the params into a file
     */
@@ -65,28 +72,28 @@ int main(int argc, char* argv[]) {
     /*
     Generate initial positions and orientations of particles
     */
-    InitialConditions(Particles, parameters);
+    InitialConditions(particles, parameters);
 
     double t = 0;
-    StorePositions(t, &parameters, Particles);
+    StorePositions(t, &parameters, particles);
     while (t < parameters.final_time) {
         /*
         Update the positions of the particles
         */
-        UpdateParticles(Particles, parameters);
+        UpdateParticles(particles, parameters);
         t += parameters.dt;
         /*
         Store positions every store_time_interval
         */
-        StorePositions(t, &parameters, Particles);
+        StorePositions(t, &parameters, particles);
     }
 
     /*
     Free up memory
     */
-    free(Particles);
+    free(particles);
     free(command_line_output);
     fclose(parameters.data_file);
 
-    return 1;
+    return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot). accessible through echo #$
 }
