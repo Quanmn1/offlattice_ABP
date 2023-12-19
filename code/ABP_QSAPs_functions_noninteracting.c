@@ -79,13 +79,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "Ly ");
     number_of_input_parameters++;
 
-    strcat(*command_line_output, "rho_m ");
-    number_of_input_parameters++;
-
-    strcat(*command_line_output, "v_min ");
-    number_of_input_parameters++;
-
-    strcat(*command_line_output, "v_max ");
+    strcat(*command_line_output, "v ");
     number_of_input_parameters++;
 
     strcat(*command_line_output, "KernelName ");
@@ -124,9 +118,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].N = (long) strtod(argv[i], NULL); i++;
     parameters[0].Lx = strtod(argv[i], NULL); i++;
     parameters[0].Ly = strtod(argv[i], NULL); i++;
-    parameters[0].rho_m = strtod(argv[i], NULL); i++;
-    parameters[0].v_min = strtod(argv[i], NULL); i++;
-    parameters[0].v_max = strtod(argv[i], NULL); i++;
+    parameters[0].v = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].kernel_name , "%s", argv[i]); i++;
     parameters[0].kernel_width = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].name , "%s", argv[i]); i++;
@@ -144,7 +136,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     This function allocates memory to the particles array, and calculate some parameters
     */
 
-    char filename[1000]; // string of the filename
+    char filename[1006]; // string of the filename
     // alloc a block of mem to the pointer (array) particles
     particles[0] = (particle*) malloc(sizeof(particle) * parameters[0].N);
     // local_densities[0] = (double*) malloc(sizeof())
@@ -233,43 +225,14 @@ double Kernel(double x1, double y1, double x2, double y2, param parameters){
     return (*parameters.kernel)(r/width) / parameters.kernel_normalization / (width*width);
 }
 
-double Speed(double rho, double rho_m, double v_min, double v_max){
-    /*
-    Give the density-dependent speed (formula in the MIPS review paper)
-    */
-    return v_max + (v_min - v_max)/2 * (1+tanh(2*rho/rho_m-2));
-}
-
-double QuorumSensingSpeed(long i, particle* particles, param parameters){
-    /*
-    This function calculates the density-dependent speed of particle i
-    */
-
-    // Calculate rho at the position of particle i
-    long j;
-    double rho = 0;
-    for (j=0;j<parameters.N;j++){
-        rho += Kernel(particles[i].x, particles[i].y, 
-                      particles[j].x, particles[j].y,
-                      parameters);
-    }
-
-    // Calculate v(rho)
-    double v = Speed(rho, parameters.rho_m, parameters.v_min, parameters.v_max);
-
-    return v;
-}
-
 void UpdateParticles(particle* particles, param parameters){   
     /*
     This function updates the positions of particles
     */ 
     long i;
     for (i=0;i<parameters.N;i++){
-        // density-dependent speed
-        double v = QuorumSensingSpeed(i, particles, parameters); 
         // Non-interacting
-        // double v = parameters.v_max;
+        double v = parameters.v;
         particles[i].x += parameters.dt * v * cos(particles[i].theta);
         particles[i].y += parameters.dt * v * sin(particles[i].theta);
         particles[i].theta += parameters.noiseamp * gasdev();

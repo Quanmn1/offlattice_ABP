@@ -34,11 +34,12 @@ if not os.path.exists(video_folder):
 
 with open(data_file, 'r') as f:
     os.chdir(video_folder)
+    counter = 0
     for line in f:
         # One time
         data = line.split()
         t = float(data[0])
-        fig, ax = plt.subplots(figsize = (Lx, Ly))
+        fig, ax = plt.subplots(figsize = (6,6))
         ax.set_title(f'$N={N}, v={v}, Dr={Dr}, t={t:.2f}$')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
@@ -48,8 +49,9 @@ with open(data_file, 'r') as f:
             x = float(data[i*5+2])
             y = float(data[i*5+3])
             theta = float(data[i*5+4])
-            plot_arrow(ax, x, y, theta)
-            # plot_point(ax, x, y)
+            # plot_arrow(ax, x, y, theta)
+            plot_point(ax, x, y)
         assert i==N-1, str(i) + ' ' + str(N) # sanity check
-        plt.savefig(name + f't={t:.2f}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
         plt.close()
+        counter += 1
