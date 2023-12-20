@@ -5,47 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-
-double RadialIntegrate(double (*func)(double), double low, double high, int num_intervals) {
-    /*
-    Perform integration of a radial function on a disk 
-    from r=low to r=high using trapezoidal rule
-    */
-    double h = (high - low) / num_intervals;
-    double result = 0.5 * ((*func)(low) * low + (*func)(high) * high);
-
-    for (int i = 1; i < num_intervals; i++) {
-        double x_i = low + i * h;
-        result += (*func)(x_i) * x_i;
-    }
-
-    result *= h * 2 * M_PI;
-
-    return result;
-}
-
-double KernelTanh(double r){
-    /*
-    Un-normalized tanh kernel with cutoff at 1
-    */
-    double steep = 5;
-    if (r >= 0 && r < 1)
-        return (1+tanh(steep*(r+1/2))) * (1+tanh(steep*(1/2-r))) / 4;
-    else
-        return 0;
-}
-
-double KernelExp(double r){
-    /*
-    Un-normalized exponential kernel (formula in the MIPS review paper)
-    */
-    if (r >= 0 && r < 1)
-        return exp(-1/(1 - r*r));
-    else
-        return 0;
-}
-
+#include "math_helper.c"
 
 void ReadInputParameters(int argc, char* argv[], char** command_line_output, param* parameters, inputparam* input_parameters){
     /*
@@ -220,16 +180,16 @@ void InitialConditionsOrigin(particle* particles, param parameters){
     for (i=0; i<parameters.N; i++){
         particles[i].x = 0;
         particles[i].y = 0;
-        particles[i].theta = 2*M_PI*genrand64_real3(); //M_2_PI calls 2*Pi in C
+        particles[i].theta = 2*M_PI*genrand64_real3();
     }
 }
 
-double Kernel(double x1, double y1, double x2, double y2, param parameters){
+double Kernel(double x, double y, param parameters){
     /*
     Give the value of a normalized kernel at r1 and r2
     */
     double width = parameters.kernel_width;
-    double r = sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+    double r = sqrt(x*x + y*y);
     return (*parameters.kernel)(r/width) / parameters.kernel_normalization / (width*width);
 }
 
@@ -240,19 +200,32 @@ double Speed(double rho, double rho_m, double v_min, double v_max){
     return v_max + (v_min - v_max)/2 * (1+tanh(2*rho/rho_m-2));
 }
 
+double Density(double x, double y, particle* particles, param parameters) {
+    /*
+    Calculate density at point (x,y) using the kernel specified in parameters
+    */
+    long j;
+    double rho = 0;
+    for (j=0;j<parameters.N;j++){
+        double x = Min(3, fabs(x-particles[j].x),
+                        fabs(x-particles[j].x+parameters.Lx),
+                        fabs(x-particles[j].x-parameters.Lx));
+        double y = Min(3, fabs(y-particles[j].y),
+                        fabs(y-particles[j].y+parameters.Ly),
+                        fabs(y-particles[j].y-parameters.Ly));
+        rho += Kernel(x, y, parameters);
+    }
+
+    return rho;
+}
+
 double QuorumSensingSpeed(long i, particle* particles, param parameters){
     /*
     This function calculates the density-dependent speed of particle i
     */
 
     // Calculate rho at the position of particle i
-    long j;
-    double rho = 0;
-    for (j=0;j<parameters.N;j++){
-        rho += Kernel(particles[i].x, particles[i].y, 
-                      particles[j].x, particles[j].y,
-                      parameters);
-    }
+    double rho = Density(particles[i].x, particles[i].y, particles, parameters);
 
     // Calculate v(rho)
     double v = Speed(rho, parameters.rho_m, parameters.v_min, parameters.v_max);
@@ -268,8 +241,6 @@ void UpdateParticles(particle* particles, param parameters){
     for (i=0;i<parameters.N;i++){
         // density-dependent speed
         double v = QuorumSensingSpeed(i, particles, parameters); 
-        // Non-interacting
-        // double v = parameters.v_max;
         particles[i].x += parameters.dt * v * cos(particles[i].theta);
         particles[i].y += parameters.dt * v * sin(particles[i].theta);
         particles[i].theta += parameters.noiseamp * gasdev();
@@ -303,7 +274,8 @@ void StorePositions(double t, param *parameters, particle* particles){
                     t,i,particles[i].x,particles[i].y,particles[i].theta);
         }
         fprintf(parameters[0].data_file, "\n");
-    parameters[0].next_store_time += parameters[0].store_time_interval;
+        // Print out the density profile to a file
+        parameters[0].next_store_time += parameters[0].store_time_interval;
     }
     
     fflush(parameters[0].data_file);

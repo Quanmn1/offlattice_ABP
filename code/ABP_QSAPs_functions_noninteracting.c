@@ -5,47 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-
-double RadialIntegrate(double (*func)(double), double low, double high, int num_intervals) {
-    /*
-    Perform integration of a radial function on a disk 
-    from r=low to r=high using trapezoidal rule
-    */
-    double h = (high - low) / num_intervals;
-    double result = 0.5 * ((*func)(low) * low + (*func)(high) * high);
-
-    for (int i = 1; i < num_intervals; i++) {
-        double x_i = low + i * h;
-        result += (*func)(x_i) * x_i;
-    }
-
-    result *= h * 2 * M_PI;
-
-    return result;
-}
-
-double KernelTanh(double r){
-    /*
-    Un-normalized tanh kernel with cutoff at 1
-    */
-    double steep = 5;
-    if (r >= 0 && r < 1)
-        return (1+tanh(steep*(r+1/2))) * (1+tanh(steep*(1/2-r))) / 4;
-    else
-        return 0;
-}
-
-double KernelExp(double r){
-    /*
-    Un-normalized exponential kernel (formula in the MIPS review paper)
-    */
-    if (r >= 0 && r < 1)
-        return exp(-1/(1 - r*r));
-    else
-        return 0;
-}
-
+#include "math_helper.c"
 
 void ReadInputParameters(int argc, char* argv[], char** command_line_output, param* parameters, inputparam* input_parameters){
     /*
@@ -88,6 +48,9 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "KernelWidth ");
     number_of_input_parameters++;
 
+    strcat(*command_line_output, "DensityGridSpacing ");
+    number_of_input_parameters++;
+
     strcat(*command_line_output, "FileName ");
     number_of_input_parameters++;
 
@@ -121,6 +84,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].v = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].kernel_name , "%s", argv[i]); i++;
     parameters[0].kernel_width = strtod(argv[i], NULL); i++;
+    parameters[0].density_grid_spacing = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].name , "%s", argv[i]); i++;
     parameters[0].final_time = strtod(argv[i], NULL); i++;
     parameters[0].next_store_time = strtod(argv[i], NULL); i++;
@@ -131,7 +95,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 #endif
 }
 
-void AssignValues(param* parameters, inputparam input_parameters, particle** particles, double** local_densities){
+void AssignValues(param* parameters, inputparam input_parameters, particle** particles, double** local_densities, int store_density){
     /*
     This function allocates memory to the particles array, and calculate some parameters
     */
@@ -147,6 +111,17 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
 
     sprintf(filename, "%s_data",input_parameters.name);
     parameters[0].data_file = fopen(filename, "w");
+
+    // the density grid is centered at (0,0), and the half_number_of_points are the number of points to one side
+    parameters[0].half_number_of_points_x = floor(parameters[0].Lx/2 / parameters[0].density_grid_spacing);
+    parameters[0].half_number_of_points_y = floor(parameters[0].Ly/2 / parameters[0].density_grid_spacing);
+
+    if (store_density==1){
+        sprintf(filename, "%s_density",input_parameters.name);
+        parameters[0].density_file = fopen(filename, "w");
+        fprintf(parameters[0].density_file, "%d \t %d \t %lg \n", parameters[0].half_number_of_points_x,
+                parameters[0].half_number_of_points_y, parameters[0].density_grid_spacing);
+    }
 
     parameters[0].noiseamp = sqrt(2 * parameters[0].dt * input_parameters.Dr);
 
@@ -216,13 +191,39 @@ void InitialConditionsOrigin(particle* particles, param parameters){
     }
 }
 
-double Kernel(double x1, double y1, double x2, double y2, param parameters){
+double Kernel(double x, double y, param parameters){
     /*
     Give the value of a normalized kernel at r1 and r2
     */
     double width = parameters.kernel_width;
-    double r = sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+    double r = sqrt(x*x + y*y);
     return (*parameters.kernel)(r/width) / parameters.kernel_normalization / (width*width);
+}
+
+double Density(double x, double y, particle* particles, param parameters) {
+    /*
+    Calculate density at point (x,y) using the kernel specified in parameters
+    */
+    long j;
+    double rho = 0;
+    for (j=0;j<parameters.N;j++){
+        double relative_x = Min(3, fabs(x-particles[j].x),
+                        fabs(x-particles[j].x+parameters.Lx),
+                        fabs(x-particles[j].x-parameters.Lx));
+        double relative_y = Min(3, fabs(y-particles[j].y),
+                        fabs(y-particles[j].y+parameters.Ly),
+                        fabs(y-particles[j].y-parameters.Ly));
+        rho += Kernel(relative_x, relative_y, parameters);
+    }
+
+    return rho;
+}
+
+double PositionDependentSpeed(double x, double y) {
+    if (x>=0 && y>=0) return 0.5;
+    else if (x>0 && y<0) return 0.3;
+    else if (x<0 && y>0) return 0.2;
+    else return 0.1;
 }
 
 void UpdateParticles(particle* particles, param parameters){   
@@ -233,6 +234,8 @@ void UpdateParticles(particle* particles, param parameters){
     for (i=0;i<parameters.N;i++){
         // Non-interacting
         double v = parameters.v;
+        // position dependent
+        // double v = PositionDependentSpeed(particles[i].x, particles[i].y);
         particles[i].x += parameters.dt * v * cos(particles[i].theta);
         particles[i].y += parameters.dt * v * sin(particles[i].theta);
         particles[i].theta += parameters.noiseamp * gasdev();
@@ -254,19 +257,47 @@ void UpdateParticles(particle* particles, param parameters){
     }
 }
 
-void StorePositions(double t, param *parameters, particle* particles){
+void MeanSquare(param parameters, particle* particles, double* x2, double* y2){
+    long i;
+    for (i=0;i<parameters.N;i++) {
+        *x2 += particles[i].x * particles[i].x / parameters.N;
+        *y2 += particles[i].y * particles[i].y / parameters.N;
+    }
+}
+
+void StorePositions(double t, param *parameters, particle* particles, int store_density){
     /*
     This function store the positions and angles of each particles 
-    every store_time_interval starting from the inputted next_store_time
+    every store_time_interval starting from the inputted next_store_time.
+    If the last argument is 1, also store the density at regular grid points.
     */
     long i;
     if (t >= parameters[0].next_store_time){
+        double x2 = 0, y2 = 0;
+        MeanSquare(parameters[0], particles, &x2, &y2);
+        fprintf(parameters[0].data_file,"%lg \t %lg \t", x2, y2);
         for (i=0;i<parameters[0].N;i++){
             fprintf(parameters[0].data_file,"%lg \t %ld \t %lg \t %lg \t %lg \t",
                     t,i,particles[i].x,particles[i].y,particles[i].theta);
         }
         fprintf(parameters[0].data_file, "\n");
-    parameters[0].next_store_time += parameters[0].store_time_interval;
+
+        if (store_density==1){
+            // Calculate density grid.
+            int i, j;
+            for (i=-parameters[0].half_number_of_points_x;i<=parameters[0].half_number_of_points_x;i++) {
+                for (j=-parameters[0].half_number_of_points_y; j<=parameters[0].half_number_of_points_y;j++) {
+                    double rho = Density(i*parameters[0].density_grid_spacing, 
+                                        j*parameters[0].density_grid_spacing, particles, parameters[0]);
+                    fprintf(parameters[0].density_file, "%lg \t", rho);
+                }
+                fprintf(parameters[0].density_file, "\n");
+            }
+            fprintf(parameters[0].density_file, "\n");
+            fflush(parameters[0].density_file);
+        }
+
+        parameters[0].next_store_time += parameters[0].store_time_interval;
     }
     
     fflush(parameters[0].data_file);

@@ -25,6 +25,10 @@ typedef struct param {
     double next_store_time;
     double store_time_interval;
     double noiseamp;
+    double density_grid_spacing;
+    int half_number_of_points_x;
+    int half_number_of_points_y;
+    FILE* density_file;
     FILE* param_file;
     FILE* data_file;
 } param;
@@ -62,7 +66,7 @@ int main(int argc, char* argv[]) {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &particles, &local_densities);
+    AssignValues(&parameters, input_parameters, &particles, &local_densities, 1);
     /*
     Write the params into a file
     */
@@ -73,7 +77,7 @@ int main(int argc, char* argv[]) {
     InitialConditionsOrigin(particles, parameters);
 
     double t = 0;
-    StorePositions(t, &parameters, particles);
+    StorePositions(t, &parameters, particles, 1);
     while (t < parameters.final_time) {
         /*
         Update the positions of the particles
@@ -83,7 +87,7 @@ int main(int argc, char* argv[]) {
         /*
         Store positions every store_time_interval
         */
-        StorePositions(t, &parameters, particles);
+        StorePositions(t, &parameters, particles, 1); // store density as well
     }
 
     /*
@@ -92,6 +96,7 @@ int main(int argc, char* argv[]) {
     free(particles);
     free(command_line_output);
     fclose(parameters.data_file);
+    fclose(parameters.density_file);
 
     return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot). accessible through echo #$
 }

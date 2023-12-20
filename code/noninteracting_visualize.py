@@ -9,7 +9,7 @@ def plot_arrow(ax, x, y, theta, scale=0.3):
     ax.arrow(x-dx/2, y-dy/2, dx, dy, width=0.02, color='C0')
 
 def plot_point(ax, x, y):
-    ax.plot(x, y, marker='.', ms=1)
+    ax.plot(x, y, marker='.', ms=1, ls='')
 
 name = sys.argv[1]
 param_file = name + '_param'
@@ -32,13 +32,21 @@ video_folder = name+'_video'
 if not os.path.exists(video_folder):
     os.mkdir(video_folder)
 
+times = []
+x2s = []
+y2s = []
+
 with open(data_file, 'r') as f:
     os.chdir(video_folder)
     counter = 0
     for line in f:
         # One time
         data = line.split()
-        t = float(data[0])
+        t = float(data[2])
+        times.append(t)
+        x2s.append(float(data[0]))
+        y2s.append(float(data[1]))
+        
         fig, ax = plt.subplots(figsize = (6,6))
         ax.set_title(f'$N={N}, v={v}, Dr={Dr}, t={t:.2f}$')
         ax.set_xlabel('x')
@@ -46,12 +54,21 @@ with open(data_file, 'r') as f:
         ax.set_xlim(-Lx/2,Lx/2)
         ax.set_ylim(-Ly/2,Ly/2)
         for i in range(0, len(data)//5):
-            x = float(data[i*5+2])
-            y = float(data[i*5+3])
-            theta = float(data[i*5+4])
+            x = float(data[i*5+4])
+            y = float(data[i*5+5])
+            theta = float(data[i*5+6])
             # plot_arrow(ax, x, y, theta)
             plot_point(ax, x, y)
         assert i==N-1, str(i) + ' ' + str(N) # sanity check
         plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
         plt.close()
         counter += 1
+
+plt.plot(times, x2s, label='$\\langle x^2 \\rangle $')
+plt.plot(times, y2s, label='$\\langle y^2 \\rangle $')
+plt.xlabel('Time')
+plt.ylabel('Mean squared displacement')
+plt.legend()
+plt.title('Diffusion of particles as a function of time')
+plt.savefig(name + '_diffusion.png', dpi=300, bbox_inches='tight')
+plt.close()

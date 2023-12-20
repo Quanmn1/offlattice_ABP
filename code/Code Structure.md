@@ -28,5 +28,12 @@ space not important
 can read as titi is a pointer to an int, or * titi is an int
 Can manipulate as array: * (titi+1) = titi[1]
 
+Calculate density:
+For each pair of points, in periodic boundary conditions: since the kernel is much smaller than the system size, take the min of the possible distances. That is the only distance that can contribute significantly to the density. DONE
+Calculate density function on a grid of points, write the matrix to a file with parameters of the grid. Python code read in the file and plot using color.
+- Check steady state density with velocity landscape. Looks good qualitatively!
+- Starting at 0: Fit density profile to a gaussian and plot the parameters as a function of time. Good!
 
-ffmpeg -pattern_type glob -i "interacting_test_video/*.png" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p interacting_text_video.mp4
+Merged two function files, scrap the noninteracting one? Can't do that because the attributes in parameters are required to be defined, even if the function isn't used. Maybe make a common function file, and import from it?
+
+Handle Keyboard interrupt so that save data
