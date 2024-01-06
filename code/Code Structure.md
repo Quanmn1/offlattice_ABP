@@ -37,3 +37,22 @@ Calculate density function on a grid of points, write the matrix to a file with 
 Merged two function files, scrap the noninteracting one? Can't do that because the attributes in parameters are required to be defined, even if the function isn't used. Maybe make a common function file, and import from it?
 
 Handle Keyboard interrupt so that save data
+
+Spatial hashing
+
+Options: define code so that can switch off interaction or switch on measuring sth using ifdef & elif defined. Name the compiled file so that i rember which options turned on.
+Can get very messy!
+THink abt what goes in functions and what goes in main. typedef struct?
+Define variables in main
+
+Can try to define things in the code first, and then move to functions later
+Decide how many things i put in the parameters
+
+best size of the box: interaction length. if many lengths: pick the largest one.
+when do floor: for safety add EPS=1e-7 or sth
+
+Good to have interaction range to be 1 bc of constraints
+
+Small checks: very few particles, no interactions. Print positions and corresponding boxes.
+
+

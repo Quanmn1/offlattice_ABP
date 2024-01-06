@@ -257,15 +257,15 @@ void UpdateParticles(particle* particles, param parameters){
     }
 }
 
-void MeanSquare(param parameters, particle* particles, double* x2, double* y2){
+void MeanSquareDisplacement(long N, particle* particles, double* x2, double* y2){
     long i;
-    for (i=0;i<parameters.N;i++) {
-        *x2 += particles[i].x * particles[i].x / parameters.N;
-        *y2 += particles[i].y * particles[i].y / parameters.N;
+    for (i=0;i<N;i++) {
+        *x2 += particles[i].x * particles[i].x / N;
+        *y2 += particles[i].y * particles[i].y / N;
     }
 }
 
-void StorePositions(double t, param *parameters, particle* particles, int store_density){
+void StorePositions(double t, param *parameters, particle* particles){
     /*
     This function store the positions and angles of each particles 
     every store_time_interval starting from the inputted next_store_time.
@@ -274,7 +274,7 @@ void StorePositions(double t, param *parameters, particle* particles, int store_
     long i;
     if (t >= parameters[0].next_store_time){
         double x2 = 0, y2 = 0;
-        MeanSquare(parameters[0], particles, &x2, &y2);
+        MeanSquareDisplacement(parameters[0].N, particles, &x2, &y2);
         fprintf(parameters[0].data_file,"%lg \t %lg \t", x2, y2);
         for (i=0;i<parameters[0].N;i++){
             fprintf(parameters[0].data_file,"%lg \t %ld \t %lg \t %lg \t %lg \t",
