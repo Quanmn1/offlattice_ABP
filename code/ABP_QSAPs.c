@@ -42,7 +42,6 @@ int main(int argc, char* argv[]) {
     /*
     Allocate neighboring particles
     */
-    neighbors = (int*) malloc( (parameters.N+1)*2 * sizeof(int) );
     ConstructNeighbors(&neighbors, parameters.N);
 
     /*
@@ -53,8 +52,8 @@ int main(int argc, char* argv[]) {
     // before malloc: cast into box***
     // for each column: malloc(Nybox * sizeof(box))
     // we do this bc we want to alloc for each of columns
-    neighboring_boxes = (box***) malloc(parameters.NxBox * sizeof(box*)); // NxBox: number of indices along x
     #ifdef QSAP
+    neighboring_boxes = (box***) malloc(parameters.NxBox * sizeof(box*)); // NxBox: number of indices along x
     ConstructNeighboringBoxes(parameters, neighboring_boxes);
     #endif
 
@@ -63,19 +62,19 @@ int main(int argc, char* argv[]) {
     /*
     Generate initial positions and orientations of particles
     */
-    InitialConditions(particles, parameters);
+    InitialConditions(particles, parameters, &boxes, &neighbors);
     double t = 0;
-    StorePositions(t, &parameters, particles);
+    StorePositions(t, &parameters, particles, &boxes, &neighbors);
     while (t < parameters.final_time) {
         /*
         Update the positions of the particles
         */
-        UpdateParticles(particles, parameters); // check if box is changed. if so, update boxes
+        UpdateParticles(particles, parameters, &boxes, &neighbors); // check if box is changed. if so, update boxes
         t += parameters.dt;
         /*
         Store positions every store_time_interval
         */
-        StorePositions(t, &parameters, particles);
+        StorePositions(t, &parameters, particles, &boxes, &neighbors);
     }
 
     /*
