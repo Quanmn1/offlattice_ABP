@@ -18,8 +18,8 @@ int main(int argc, char* argv[]) {
     particle* particles; // pointer to start of array
 
 #ifdef HASHING
-    int** boxes; // first particle in box i, j. malloc in AssignValues
-    int* neighbors; // list of neighbors
+    long** boxes; // first particle in box i, j. malloc in AssignValues
+    long* neighbors; // list of neighbors
     box*** neighboring_boxes; // [i][j] is array of neighbors of box i, j. Constant.
 #endif
 
@@ -37,23 +37,16 @@ int main(int argc, char* argv[]) {
     StoreInputParameters(argc, argv, parameters, input_parameters, command_line_output);
 
 #ifdef HASHING
-    ConstructBoxes(&parameters, &boxes); // Initialize all empty boxes
+    // Allocate and initialize all empty boxes
+    ConstructBoxes(parameters, &boxes); 
 
-    /*
-    Allocate neighboring particles
-    */
+    // Allocate and initialize empty neighbors
     ConstructNeighbors(&neighbors, parameters.N);
 
-    /*
-    Allocate neighboring boxes
-    */
-    // initialize columns of the matrix: malloc(Nxbox * sizeof(box*)): the matrix is an array of pointers to columns
-    // each column is an array of pointers to boxes
-    // before malloc: cast into box***
-    // for each column: malloc(Nybox * sizeof(box))
-    // we do this bc we want to alloc for each of columns
     #ifdef QSAP
-    neighboring_boxes = (box***) malloc(parameters.NxBox * sizeof(box*)); // NxBox: number of indices along x
+    // Allocate neighboring boxes
+    neighboring_boxes = (box***) malloc(parameters.NxBox * sizeof(box*));
+    // Assign values to neighboring boxes
     ConstructNeighboringBoxes(parameters, neighboring_boxes);
     #endif
 
@@ -62,19 +55,35 @@ int main(int argc, char* argv[]) {
     /*
     Generate initial positions and orientations of particles
     */
-    InitialConditions(particles, parameters, &boxes, &neighbors);
+    InitialConditions(particles, parameters
+    #ifdef HASHING
+    , &boxes, &neighbors, neighboring_boxes
+    #endif
+    );
     double t = 0;
-    StorePositions(t, &parameters, particles, &boxes, &neighbors);
-    while (t < parameters.final_time) {
+    StorePositions(t, &parameters, particles
+    #ifdef HASHING
+    , &boxes, &neighbors
+    #endif
+    );
+    while (t < parameters.final_time + EPS) {
         /*
         Update the positions of the particles
         */
-        UpdateParticles(particles, parameters, &boxes, &neighbors); // check if box is changed. if so, update boxes
+        UpdateParticles(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes, t
+        #endif
+        );
         t += parameters.dt;
         /*
         Store positions every store_time_interval
         */
-        StorePositions(t, &parameters, particles, &boxes, &neighbors);
+        StorePositions(t, &parameters, particles
+        #ifdef HASHING
+        , &boxes, &neighbors
+        #endif
+        );
     }
 
     /*
@@ -91,10 +100,13 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef HASHING
-    FreeBoxes(&parameters, &boxes);
-    FreeNeighbors(&neighbors);
+    FreeBoxes(parameters.NxBox, &boxes);
+    free(neighbors);
     #ifdef QSAP
-        FreeNeighboringBoxes();
+    FreeNeighboringBoxes(&neighboring_boxes, parameters.NxBox, parameters.NyBox);
+    #endif
+    #ifdef TESTING
+    fclose(parameters.boxes_file);
     #endif
 #endif
 

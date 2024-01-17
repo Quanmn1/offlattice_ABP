@@ -8,6 +8,12 @@
 #include "math_helper.c"
 
 #define EPS 1e-7
+#define NORMALIZATION_EXP 0.46651239317833015
+#ifdef HASHING
+    #define HASING_ARGS , long*** boxes, long** neighbors, box*** neighboring_boxes
+#else
+    #define HASING_ARGS 
+#endif
 
 /*
 store parameters used in the loop
@@ -24,9 +30,12 @@ typedef struct param {
 #elif defined NONE
     double v;
 #endif
+    double interaction_range;
+#ifdef ArbitraryKernel
     double (*kernel)(double);
     double kernel_width;
     double kernel_normalization;
+#endif
     double final_time;
     double next_store_time;
     double store_time_interval;
@@ -55,7 +64,9 @@ Store parameters used only at the beginning
 typedef struct inputparam {
     char name[1000];
     double Dr;
+#ifdef ArbitraryKernel
     char kernel_name[10];
+#endif
 #ifdef MT
     long long seed;
 #endif
@@ -69,15 +80,24 @@ typedef struct particle {
     int bi;
     int bj;
 #endif
+#ifdef QSAP
+    double rho;
+#endif
+#ifdef PFAP
+    double fx;
+    double fy;
+#endif
 } particle;
 
 #ifdef HASHING
 typedef struct box {
     int i;
     int j;
+#ifdef PBC
     double epsilon_x; // For PBC
     double epsilon_y;
-} box; // only need for neighboring boxes
+#endif
+} box;
 #endif
 
 void ReadInputParameters(int argc, char* argv[], char** command_line_output, param* parameters, inputparam* input_parameters){
@@ -133,11 +153,16 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 
 #endif
 
+    strcat(*command_line_output, "interaction_range ");
+    number_of_input_parameters++;
+
+#ifdef ArbitraryKernel
     strcat(*command_line_output, "KernelName ");
     number_of_input_parameters++;
 
     strcat(*command_line_output, "KernelWidth ");
     number_of_input_parameters++;
+#endif
 
 #ifdef OUTPUT_DENSITY
     strcat(*command_line_output, "DensityGridSpacing ");
@@ -171,7 +196,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     // Now we know the number of params is correct, assign values
     i = 1;
     parameters[0].dt = strtod(argv[i],NULL); i++; // parameters[1] would be next block in memory, meaningless
-    parameters[0].N = (int) strtod(argv[i], NULL); i++;
+    parameters[0].N = (long) strtod(argv[i], NULL); i++;
     parameters[0].Lx = strtod(argv[i], NULL); i++;
     parameters[0].Ly = strtod(argv[i], NULL); i++;
 #ifdef HASHING
@@ -184,8 +209,11 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 #elif defined NONE
     parameters[0].v = strtod(argv[i], NULL); i++;
 #endif
+    parameters[0].interaction_range = strtod(argv[i], NULL); i++;
+#ifdef ArbitraryKernel
     sprintf(input_parameters[0].kernel_name , "%s", argv[i]); i++;
     parameters[0].kernel_width = strtod(argv[i], NULL); i++;
+#endif
 #ifdef OUTPUT_DENSITY
     parameters[0].density_grid_spacing = strtod(argv[i], NULL); i++;
 #endif
@@ -216,6 +244,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     sprintf(filename, "%s_data",input_parameters.name);
     parameters[0].data_file = fopen(filename, "w");
 
+    // Calculate the noise amplitude for each time step
     parameters[0].noiseamp = sqrt(2 * parameters[0].dt * input_parameters.Dr);
 
 #ifdef OUTPUT_DENSITY
@@ -238,7 +267,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     parameters[0].NxBox = (int) parameters[0].Lx / parameters[0].box_size;
     parameters[0].NyBox = (int) parameters[0].Ly / parameters[0].box_size;
 #endif
-
+#ifdef ArbitraryKernel
     // default: 1000 intervals in integration
     int num_intervals = 1000;
     if (strcmp(input_parameters.kernel_name, "exp") == 0) {
@@ -253,7 +282,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
         printf("Kernel not supported! Supported kernel: tanh, exp");
         exit(1);
     }
-
+#endif
 #ifdef MT
     init_genrand64(input_parameters.seed);
 #endif
@@ -264,8 +293,7 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
     This function writes the parameters to a file of name name_param
     */
     fprintf(parameters.param_file,"%s\n", command_line_output);
-    int i;
-    for(i=0;i<argc;i++)
+    for(int i=0;i<argc;i++)
         fprintf(parameters.param_file, "%s ", argv[i]);
     
     fprintf(parameters.param_file, "\n");
@@ -275,56 +303,82 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
     fclose(parameters.param_file);
 }
 
-#ifdef HASHING
-void GetBox(int* bi, int* bj, double x, double y, param parameters) {
-    bi[0] = floor( (x+parameters.Lx/2) / parameters.box_size);
-    bj[0] = floor( (y+parameters.Ly/2) / parameters.box_size);
+double Kernel(double x, double y, double rmax_squared){
+    /*
+    Give the value of a normalized kernel at r1 and r2. Use exponential kernel.
+    */
+    double r_squared = x*x + y*y;
+    if (r_squared < rmax_squared) {
+        double Z = NORMALIZATION_EXP * rmax_squared;
+        return 1/Z * exp(-rmax_squared/(rmax_squared - r_squared));
+    }
+    else
+        return 0;
 }
 
-void ConstructBoxes(param* parameters, int*** boxes) {
-    // CHECK THAT Lx, Ly IS AN INTEGER MULTIPLE OF box_size
-    if ((parameters[0].Lx - parameters[0].NxBox*parameters[0].box_size > EPS) || 
-        (parameters[0].Ly - parameters[0].NyBox*parameters[0].box_size > EPS)) {
+#ifdef HASHING
+void GetBox(int* bi, int* bj, double x, double y, double Lx, double Ly, double box_size) {
+    // Get the box indices from coordinates
+    bi[0] = floor( (x+Lx/2) / box_size);
+    bj[0] = floor( (y+Ly/2) / box_size);
+}
+
+void ConstructBoxes(param parameters, long*** boxes) {
+    /*
+    Construct the array containing the first particle of each box
+    */
+    int NxBox = parameters.NxBox;
+    int NyBox = parameters.NyBox;
+    int i, j;
+    // Check that Lx, Ly is a multiple of box_size
+    if ((fabs(parameters.Lx - NxBox*parameters.box_size) > EPS) || 
+        (fabs(parameters.Ly - NyBox*parameters.box_size) > EPS)) {
         printf("Length not an integer multiple of size of box");
         exit(2);
     }
     // Construct and initialize boxes
-    boxes[0] = (int**) malloc(parameters[0].NxBox * sizeof(int*));
-    for (int i = 0; i < parameters[0].NxBox; i++) {
-        boxes[0][i] = (int*) malloc(parameters[0].NyBox * sizeof(int));
-        for (int j=0; j<parameters[0].NyBox; j++) {
+    boxes[0] = (long**) malloc(NxBox * sizeof(long*));
+    for ( i = 0; i < NxBox; i++) {
+        boxes[0][i] = (long*) malloc(NyBox * sizeof(long));
+        for ( j = 0; j < NyBox; j++) {
             boxes[0][i][j] = -1;
         }
     }
 }
 
-void ConstructNeighbors(int** neighbors, int N) {
-    // set all entries to -1
-	neighbors[0] = (int*) malloc((2*N) * sizeof(int));
+void ConstructNeighbors(long** neighbors, long N) {
+    // set all entries to -1: no relation yet between particles
+	neighbors[0] = (long*) malloc((2*N) * sizeof(long));
 	for( int i = 0 ; i < 2*N; i++)
 		neighbors[0][i] = -1;
 }
 
-void AddInBox(int index_particle, int bi, int bj, int*** boxes, int** neighbors) {
+void AddInBox(int index_particle, int bi, int bj, long*** boxes, long** neighbors, particle* particles) {
     int k = boxes[0][bi][bj]; // Save the previous first particle of the box
     boxes[0][bi][bj] = index_particle; // particle index_particle becomes the new first of box
     neighbors[0][2*index_particle] = -1; // index_part doesn't have preceding particle
     neighbors[0][2*index_particle+1] = k; // k becomes succeeding of index_particle
-    if (k != -1) neighbors[0][2*k] = index_particle; // if k is a particle, set its preceding to index_particle 
+    if (k != -1) neighbors[0][2*k] = index_particle; // if k is a particle, set its preceding to index_particle
+    particles[index_particle].bi = bi;
+    particles[index_particle].bj = bj;
 }
 
-void RemoveFromBox(int index_particle, int bi, int bj, int*** boxes, int** neighbors) {
-    int next = neighbors[0][2*index_particle+1]; // Store the particle after index_particle
-    int prev;
+void RemoveFromBox(long index_particle, int bi, int bj, long*** boxes, long** neighbors) {
+    long next = neighbors[0][2*index_particle+1]; // Store the particle after index_particle
+    long prev;
     // check if index_particle is the first one of the box
     if (boxes[0][bi][bj] == index_particle) {
         // The first particle of the box becomes the one after idx_part
         boxes[0][bi][bj] = next;
-        neighbors[0][2*next] = -1;
+        if (next != -1) neighbors[0][2*next] = -1;
     }
     else {
         // get the previous one
         prev = neighbors[0][2*index_particle];
+        if (prev == -1) {
+            printf("boxes and neighbors uncompatible: %d %d", bi, bj);
+            exit(5);
+        }
         // The next of the previous becomes the current next
         neighbors[0][2*prev+1] = next;
         // If next is a particle, its prev becomes the current prev
@@ -332,57 +386,133 @@ void RemoveFromBox(int index_particle, int bi, int bj, int*** boxes, int** neigh
     }
 }
 
-void FreeBoxes(param* parameters, int*** boxes) {
-    for (int i = 0; i < parameters[0].NxBox; i++)
+void FreeBoxes(int NxBox, long*** boxes) {
+    for (int i = 0; i < NxBox; i++)
         free(boxes[0][i]);
     free(boxes[0]);
 }
 
-void FreeNeighbors(int** neighbors) {
-    free(neighbors[0]);
-}
-
 #ifdef QSAP
 void ConstructNeighboringBoxes(param parameters, box*** neighboring_boxes) {
+    int bi, bj;
+    int NxBox = parameters.NxBox;
+    int NyBox = parameters.NyBox;
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
 
-}
+    for (bi=0; bi<NxBox; bi++) {
+        neighboring_boxes[bi] = malloc(NyBox*sizeof(box*));
+        for (bj=0; bj<NyBox; bj++) {
+            neighboring_boxes[bi][bj] = malloc(5*sizeof(box));
 
-double ComputeForces_withSpatialHashing() {
+            neighboring_boxes[bi][bj][0].i = bi;
+            neighboring_boxes[bi][bj][0].j = bj;
+            neighboring_boxes[bi][bj][0].epsilon_x = 0;
+            neighboring_boxes[bi][bj][0].epsilon_y = 0;
 
-}
+            neighboring_boxes[bi][bj][1].i = bi;
+            neighboring_boxes[bi][bj][1].j = (bj+1)%NyBox;
+            neighboring_boxes[bi][bj][1].epsilon_x = 0;
+            neighboring_boxes[bi][bj][1].epsilon_y = (bj==NyBox-1) ? Ly : 0;
 
-double ComputeDensities_withSpatialHashing() {
+            neighboring_boxes[bi][bj][2].i = (bi+1)%NxBox;
+            neighboring_boxes[bi][bj][2].j = (bj+1)%NyBox;
+            neighboring_boxes[bi][bj][2].epsilon_x = (bi==NxBox-1) ? Lx : 0;
+            neighboring_boxes[bi][bj][2].epsilon_y = (bj==NyBox-1) ? Ly : 0;
 
-}
+            neighboring_boxes[bi][bj][3].i = (bi+1)%NxBox;
+            neighboring_boxes[bi][bj][3].j = bj;
+            neighboring_boxes[bi][bj][3].epsilon_x = (bi==NxBox-1) ? Lx : 0;
+            neighboring_boxes[bi][bj][3].epsilon_y = 0;
 
-void FreeNeighboringBoxes() {
-    
-}
-#endif
-
-#endif
-
-void InitialConditions(particle* particles, param parameters, int*** boxes, int** neighbors){
-    /*
-    This function initializes the positions and angles of each particle 
-    to a uniformly random number
-    */
-
-    // not modifying particles, just where they point to, so don't need pointers
-    int i;
-    for (i=0; i<parameters.N; i++){
-        particles[i].x = parameters.Lx*(-.5+genrand64_real3()); // From -Lx/2 to Lx/2
-        particles[i].y = parameters.Ly*(-.5+genrand64_real3()); // From -Ly/2 to Ly/2
-        particles[i].theta = 2*M_PI*genrand64_real3(); //M_2_PI calls 2*Pi in C
-        #ifdef HASHING
-        int bi, bj;
-        GetBox(&bi, &bj, particles[i].x, particles[i].y, parameters);
-        AddInBox(i, bi, bj, boxes, neighbors);
-        #endif
+            neighboring_boxes[bi][bj][4].i = (bi+1)%NxBox;
+            neighboring_boxes[bi][bj][4].j = (bj+NyBox-1)%NyBox;
+            neighboring_boxes[bi][bj][4].epsilon_x = (bi==NxBox-1) ? Lx : 0;
+            neighboring_boxes[bi][bj][4].epsilon_y = (bj==0) ? - Ly : 0;
+        }
     }
 }
 
-void InitialConditionsOrigin(particle* particles, param parameters, int*** boxes, int** neighbors){
+void MeasureDensity(long* neighbors, particle* particles, long** boxes, param parameters, box*** neighboring_boxes) {
+    /*
+    Measure the density around each particle by looking at particles in adjacent boxes 
+    and compute their contributions.
+    */
+    int bi, bj, nbi, nbj;
+    long i, j, k;
+    double epsx=0, epsy=0;
+    double rmax_squared = parameters.interaction_range*parameters.interaction_range;
+    double Z = NORMALIZATION_EXP * rmax_squared;
+    int NxBox = parameters.NxBox;
+    int NyBox = parameters.NyBox;
+    double xi, yi, xj, yj, dx, dy;
+    double density_ij;
+    // Initialize density fieds to zero for all particles
+    for (i=0; i<parameters.N; i++) {
+        particles[i].rho = 0;
+    }
+    // Loop through all boxes
+    for (bi = 0; bi<NxBox; bi++) {
+        for (bj = 0; bj<NyBox; bj++) {
+            // First particle of box
+            i = boxes[bi][bj];
+            while (i!=-1) {
+                xi = particles[i].x;
+                yi = particles[i].y;
+
+                // Particle in neighboring boxes
+                for (k=0; k<5; k++) {
+                    nbi = neighboring_boxes[bi][bj][k].i;
+                    nbj = neighboring_boxes[bi][bj][k].j;
+                    #ifdef PBC
+                    epsx = neighboring_boxes[bi][bj][k].epsilon_x;
+                    epsy = neighboring_boxes[bi][bj][k].epsilon_y;
+                    #endif
+                    
+                    j = boxes[nbi][nbj];
+                    // Look through all particles in box nbi, nbj and compute their contributions to rho
+                    while (j != -1) {
+                        xj = particles[j].x;
+                        yj = particles[j].y;
+                        dx = xi - (xj + epsx);
+                        dy = yi - (yj + epsy);
+                        density_ij = Kernel(dx, dy, rmax_squared);
+                        particles[i].rho += density_ij;
+                        if (k > 0) particles[j].rho += density_ij;
+                        // go to next particle
+                        j = neighbors[2*j+1];
+                    }
+                }
+                i = neighbors[2*i+1];
+            }
+        }
+    }
+}
+
+double ComputeForces_withSpatialHashing() {
+    return 0;
+// try this by myself, might do with Gianmarco
+}
+
+void FreeNeighboringBoxes(box**** neighboring_boxes, int NxBox, int NyBox) {
+    int bi, bj;
+    for ( bi=0; bi<NxBox; bi++) {
+        for ( bj=0; bj<NyBox; bj++) {
+            free(neighboring_boxes[0][bi][bj]);
+        }
+        free(neighboring_boxes[0][bi]);
+    }
+    free(neighboring_boxes[0]);
+}
+#endif
+
+#endif
+
+void InitialConditions(particle* particles, param parameters
+                        #ifdef HASHING
+                        , long*** boxes, long** neighbors, box*** neighboring_boxes
+                        #endif
+                        ){
     /*
     This function initializes the positions and angles of each particle 
     to a uniformly random number
@@ -390,42 +520,79 @@ void InitialConditionsOrigin(particle* particles, param parameters, int*** boxes
 
     // not modifying particles, just where they point to, so don't need pointers
     int i;
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
+    for (i=0; i<parameters.N; i++){
+        particles[i].x = Lx*(-.5+genrand64_real3()); // From -Lx/2 to Lx/2
+        particles[i].y = Ly*(-.5+genrand64_real3()); // From -Ly/2 to Ly/2
+        particles[i].theta = 2*M_PI*genrand64_real3(); //M_2_PI calls 2*Pi in C
+        #ifdef HASHING
+        // Store the box and neighbor information of particles
+        GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+        AddInBox(i, bi, bj, boxes, neighbors, particles);
+        #endif
+    }
+    #ifdef HASHING
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    #endif
+}
+
+void InitialConditionsOrigin(particle* particles, param parameters, long*** boxes, long** neighbors){
+    /*
+    This function initializes the positions and angles of each particle 
+    to a uniformly random number
+    */
+
+    // not modifying particles, just where they point to, so don't need pointers
+    int i;
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
     for (i=0; i<parameters.N; i++){
         particles[i].x = 0;
         particles[i].y = 0;
         particles[i].theta = 2*M_PI*genrand64_real3();
         #ifdef HASHING
-        int bi, bj;
-        GetBox(&bi, &bj, particles[i].x, particles[i].y, parameters);
-        AddInBox(i, bi, bj, boxes, neighbors);
+        GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+        AddInBox(i, bi, bj, boxes, neighbors, particles);
         #endif
 
     }
 }
-
-double Kernel(double x, double y, param parameters){
+#ifdef ArbitraryKernel
+double KernelArbitrary(double x, double y, param parameters){
     /*
-    Give the value of a normalized kernel at r1 and r2
+    Give the value of a normalized kernel at r1 and r2.
     */
     double width = parameters.kernel_width;
     double r = sqrt(x*x + y*y);
-    return (*parameters.kernel)(r/width) / parameters.kernel_normalization / (width*width);
+    return (*parameters.kernel)(r/width) / parameters.kernel_normalization / (width*width); //Z=0.4665... * r0^2
 }
+#endif
 
-double Density(double x, double y, particle* particles, param parameters) {
+double BruteForceDensity(double x, double y, particle* particles, param parameters) {
     /*
     Calculate density at point (x,y) using the kernel specified in parameters
     */
     int j;
+    double relative_x, relative_y;
+    double rmax_squared = parameters.interaction_range*parameters.interaction_range;
     double rho = 0;
     for (j=0;j<parameters.N;j++){
-        double relative_x = Min(3, fabs(x-particles[j].x),
+        relative_x = Min(3, fabs(x-particles[j].x),
                         fabs(x-particles[j].x+parameters.Lx),
                         fabs(x-particles[j].x-parameters.Lx));
-        double relative_y = Min(3, fabs(y-particles[j].y),
+        relative_y = Min(3, fabs(y-particles[j].y),
                         fabs(y-particles[j].y+parameters.Ly),
                         fabs(y-particles[j].y-parameters.Ly));
-        rho += Kernel(relative_x, relative_y, parameters);
+        rho += Kernel(relative_x, relative_y, rmax_squared);
     }
 
     return rho;
@@ -439,19 +606,6 @@ double DensityDependentSpeed(double rho, double rho_m, double v_min, double v_ma
     return v_max + (v_min - v_max)/2 * (1+tanh(2*rho/rho_m-2));
 }
 
-double QuorumSensingSpeed(int i, particle* particles, param parameters){
-    /*
-    This function calculates the density-dependent speed of particle i
-    */
-
-    // Calculate rho at the position of particle i
-    double rho = Density(particles[i].x, particles[i].y, particles, parameters);
-
-    // Calculate v(rho)
-    double v = DensityDependentSpeed(rho, parameters.rho_m, parameters.v_min, parameters.v_max);
-
-    return v;
-}
 #elif defined POSITION_DEPENDENT_SPEED
 double PositionDependentSpeed(double x, double y){
     /*
@@ -465,23 +619,44 @@ double PositionDependentSpeed(double x, double y){
 
 #endif
 
-void UpdateParticles(particle* particles, param parameters, int*** boxes, int** neighbors){   
+void UpdateParticles(particle* particles, param parameters
+    #ifdef HASHING 
+    ,long*** boxes, long** neighbors, box*** neighboring_boxes, double t 
+    #endif
+    ) {   
     /*
     This function updates the positions of particles
     */ 
-    int i;
+    int i;    
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    double v;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int old_bi, old_bj, new_bi, new_bj;
+    #else 
+    double rho;
+    #endif
+
     for (i=0;i<parameters.N;i++){
         #ifdef QSAP
-        double v = QuorumSensingSpeed(i, particles, parameters); 
+            #ifdef HASHING
+            v = DensityDependentSpeed(particles[i].rho, parameters.rho_m, parameters.v_min, parameters.v_max);
+            #else
+            rho = BruteForceDensity(particles[i].x, particles[i].y, particles, parameters);
+            v = DensityDependentSpeed(rho, parameters.rho_m, parameters.v_min, parameters.v_max);
+            #endif
         #elif defined NONE
-        double v = parameters.v;
+        v = parameters.v;
         #elif defined POSITION_DEPENDENT_SPEED
-        double v = PositionDependentSpeed(particles[i].x, particles[i].y);
+        v = PositionDependentSpeed(particles[i].x, particles[i].y);
         #endif
+
         #ifdef HASHING
-        int old_bi, old_bj, new_bi, new_bj;
-        GetBox(&old_bi, &old_bj, particles[i].x, particles[i].y, parameters);
+        old_bi = particles[i].bi;
+        old_bj = particles[i].bj;
         #endif
+
         particles[i].x += parameters.dt * v * cos(particles[i].theta);
         particles[i].y += parameters.dt * v * sin(particles[i].theta);
         particles[i].theta += parameters.noiseamp * gasdev();
@@ -490,25 +665,41 @@ void UpdateParticles(particle* particles, param parameters, int*** boxes, int** 
         if (particles[i].theta<0)
             particles[i].theta += 2*M_PI;
 
-        if (particles[i].x>parameters.Lx/2)
-            particles[i].x -= parameters.Lx;
-        if (particles[i].x<-parameters.Lx/2)
-            particles[i].x += parameters.Lx;
+        if (particles[i].x>Lx/2)
+            particles[i].x -= Lx;
+        if (particles[i].x<-Lx/2)
+            particles[i].x += Lx;
 
-        if (particles[i].y>parameters.Ly/2)
-            particles[i].y -= parameters.Ly;
-        if (particles[i].y<-parameters.Ly/2)
-            particles[i].y += parameters.Ly;
+        if (particles[i].y>Ly/2)
+            particles[i].y -= Ly;
+        if (particles[i].y<-Ly/2)
+            particles[i].y += Ly;
 
         #ifdef HASHING
-        GetBox(&new_bi, &new_bj, particles[i].x, particles[i].y, parameters);
-        
+        GetBox(&new_bi, &new_bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+
         if ((new_bi != old_bi) || (new_bj != old_bj)) {
             RemoveFromBox(i, old_bi, old_bj, boxes, neighbors);
-            AddInBox(i, new_bi, new_bj, boxes, neighbors);
+            AddInBox(i, new_bi, new_bj, boxes, neighbors, particles);
         }
         #endif
     }
+    #ifdef HASHING
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    #endif
+
+    #ifdef TESTING_DENSITY
+    double rho;
+    for (i=0;i<parameters.N;i++){
+        rho = Density(particles[i].x, particles[i].y, particles, parameters);
+        if (fabs(rho - particles[i].rho) > EPS) {
+            printf("%lf \n", rho - particles[i].rho);
+            printf("%lf \n", t);
+            printf("%d \n", i);
+        }
+    }
+    #endif
+
 }
 
 #ifdef OUTPUT_DENSITY
@@ -521,30 +712,23 @@ void MeanSquareDisplacement(int N, particle* particles, double* x2, double* y2){
 }
 #endif
 
-void StorePositions(double t, param *parameters, particle* particles, int*** boxes, int** neighbors){
+void StorePositions(double t, param *parameters, particle* particles
+    #ifdef HASHING
+    ,long*** boxes, long** neighbors
+    #endif
+    ) {
     /*
     This function store the positions and angles of each particles 
-    every store_time_interval starting from the inputted next_store_time
+    every store_time_interval starting from the inputted next_store_time.
     */
     int i;
     if (t >= parameters[0].next_store_time){
         #ifdef OUTPUT_DENSITY
-        double x2 = 0, y2 = 0;
-        MeanSquareDisplacement(parameters[0].N, particles, &x2, &y2);
-        fprintf(parameters[0].data_file,"%lg \t %lg \t", x2, y2); // First two entries will be x2 and y2
-        #endif
-
-        for (i=0;i<parameters[0].N;i++){
-            fprintf(parameters[0].data_file,"%lg \t %d \t %lg \t %lg \t %lg \t",
-                    t,i,particles[i].x,particles[i].y,particles[i].theta);
-        }
-        fprintf(parameters[0].data_file, "\n");
-
-        #ifdef OUTPUT_DENSITY
-        // Calculate density grid.
+        // Print out the density profile to density file
         int i, j;
         for (i=-parameters[0].half_number_of_points_x;i<=parameters[0].half_number_of_points_x;i++) {
             for (j=-parameters[0].half_number_of_points_y; j<=parameters[0].half_number_of_points_y;j++) {
+                // Maybe output density from each particle instead of calculating again on a new grid?
                 double rho = Density(i*parameters[0].density_grid_spacing, 
                                     j*parameters[0].density_grid_spacing, particles, parameters[0]);
                 fprintf(parameters[0].density_file, "%lg \t", rho);
@@ -553,22 +737,41 @@ void StorePositions(double t, param *parameters, particle* particles, int*** box
         }
         fprintf(parameters[0].density_file, "\n");
         fflush(parameters[0].density_file);
+
+        // Print out the MSD to data file
+        double x2 = 0, y2 = 0;
+        MeanSquareDisplacement(parameters[0].N, particles, &x2, &y2);
+        fprintf(parameters[0].data_file,"%lg \t %lg \t", x2, y2); // First two entries will be x2 and y2
         #endif
 
-        #ifdef TESTING
+        #ifdef HASHING
+        for (i=0;i<parameters[0].N;i++){
+            fprintf(parameters[0].data_file,"%lg \t %d \t %lg \t %lg \t %lg \t %lg \t %d \t %d \t",
+                    t,i,particles[i].x,particles[i].y,particles[i].theta,particles[i].rho,particles[i].bi,particles[i].bj);
+        }
+        #else
+        for (i=0;i<parameters[0].N;i++){
+            fprintf(parameters[0].data_file,"%lg \t %d \t %lg \t %lg \t %lg \t",
+                    t,i,particles[i].x,particles[i].y,particles[i].theta);
+        }
+        #endif
+        fprintf(parameters[0].data_file, "\n");
+
+        #ifdef TESTING_BOX
+        // Print out boxes and neighbors to check the logic
         for (int i = parameters[0].NyBox-1; i >= 0; i--) {
             for (int j=0; j<parameters[0].NxBox;j++) {
-                fprintf(parameters[0].boxes_file, "%d \t", boxes[0][j][i]);
+                fprintf(parameters[0].boxes_file, "%ld \t", boxes[0][j][i]);
             }
             fprintf(parameters[0].boxes_file, "\n");
         }
         for (int i = 0; i < parameters[0].N*2; i++) {
-            fprintf(parameters[0].boxes_file, "%d \t", neighbors[0][i]);
+            fprintf(parameters[0].boxes_file, "%ld \t", neighbors[0][i]);
         }
         fprintf(parameters[0].boxes_file, "\n");
+        fflush(parameters[0].boxes_file);
         #endif
     
-        // Print out the density profile to a file
         parameters[0].next_store_time += parameters[0].store_time_interval;
     }
     

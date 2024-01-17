@@ -56,3 +56,13 @@ Good to have interaction range to be 1 bc of constraints
 Small checks: very few particles, no interactions. Print positions and corresponding boxes.
 
 
+Check to see what can be put in inputparam![[Screenshot 2024-01-08 at 9.40.45 AM.png]]![[Screenshot 2024-01-08 at 9.42.21 AM.png]]
+
+let all N be long
+
+when make density map: use the same kernel
+
+
+Possible checks:
+check with brute force density
+figure 5 of the 2018 paper
