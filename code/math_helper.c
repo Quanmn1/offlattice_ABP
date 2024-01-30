@@ -65,3 +65,30 @@ double Min(int num, ...) {
 
     return min;
 }
+
+double AbsMin(int num, ...) {
+    /*
+    Find the minimum of an arbitrary number of values. 
+    The first argument is the number of values to be inputed.
+    */
+    va_list valist;
+    int i;
+    double value, next_value, min;
+
+    va_start(valist, num);
+
+    value = va_arg(valist, double);
+    min = fabs(value);
+
+    for (i=0; i<num-1; i++){
+        next_value = va_arg(valist, double);
+        if (fabs(next_value) < min) {
+            min = fabs(next_value);
+            value = next_value;
+        }
+    }
+
+    va_end(valist);
+
+    return value;
+}

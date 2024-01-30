@@ -80,8 +80,7 @@ void init_genrand64(unsigned long long seed)
 /* initialize by an array with array-length */
 /* init_key is the array for initializing keys */
 /* key_length is its length */
-void init_by_array64(init_key, key_length)
-unsigned long long init_key[], key_length;
+void init_by_array64(unsigned long long init_key[], unsigned long long key_length)
 {
     unsigned long long i, j, k;
     init_genrand64(19650218ULL);

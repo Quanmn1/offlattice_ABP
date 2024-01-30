@@ -26,6 +26,7 @@ N = int(params['N'])
 v_max = params['v_max']
 v_min = params['v_min']
 rho_m = params['rho_m']
+rho_m_num = float(rho_m)
 r0 = params['interaction_range']
 Dr = params['Dr']
 Lx = float(params['Lx'])
@@ -42,6 +43,7 @@ with open(data_file, 'r') as f:
     os.chdir(video_folder)
     counter = 0
     for line in f:
+        densities = np.zeros(N)
         # One time
         data = line.split()
         t = float(data[0])
@@ -57,6 +59,8 @@ with open(data_file, 'r') as f:
         # ax.xaxis.set_major_locator(FixedLocator(x_ticks))
         # ax.yaxis.set_major_locator(FixedLocator(y_ticks))
 
+        # color by orientation or density
+
         for i in range(0, len(data)//8):
             x = float(data[i*8+2])
             y = float(data[i*8+3])
@@ -64,10 +68,27 @@ with open(data_file, 'r') as f:
             rho = float(data[i*8+5])
             bi = int(data[i*8+6])
             bj = int(data[i*8+7])
+            densities[i] = rho
             # plot_arrow(ax, x, y, theta)
             plot_point(ax, x, y, label=fr"$\rho$={rho:.2f}, bi={bi}, bj={bj}")
         assert i==N-1, str(i) + ' ' + str(N) # sanity check
         # plt.legend(loc=(1,0.3))
         plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
         plt.close()
+            
+
+        xlim_up = 4*rho_m_num
+        xlim_down = 0
+        num_bins = int((xlim_up - xlim_down)/(0.1*rho_m_num))
+        hist, bin_edges = np.histogram(densities, bins=num_bins, range=(xlim_down, xlim_up), density=True)
+
+        fig, ax = plt.subplots(figsize = (6,6))
+        ax.set_title(f'$N={N}, L={Lx}, v_{{max}}={v_max}, v_{{min}}={v_min}, \\rho_m={rho_m}, r_0={r0}, Dr={Dr}, t={t:.2f}$')
+        ax.stairs(hist, bin_edges)
+        ax.set_xlabel('Density')
+        ax.set_ylabel('Probability')
+        ax.set_xlim(xlim_down, xlim_up)
+        plt.savefig(name + f'_densities_{counter}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+
         counter += 1

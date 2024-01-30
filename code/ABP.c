@@ -9,13 +9,14 @@
 #include "mt19937-64.c" // RNG
 #endif
 
-#include "ABP_QSAPs_functions.c"
+#include "ABP_functions.c"
 
 int main(int argc, char* argv[]) {
     char* command_line_output; // pointer to start of string
     param parameters; // struct
     inputparam input_parameters; // struct
     particle* particles; // pointer to start of array
+    double* density_histogram; // store the accumulated density histogram in a time period
 
 #ifdef HASHING
     long** boxes; // first particle in box i, j. malloc in AssignValues
@@ -30,7 +31,7 @@ int main(int argc, char* argv[]) {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &particles);
+    AssignValues(&parameters, input_parameters, &particles, &density_histogram);
     /*
     Write the params into a file
     */
@@ -43,12 +44,14 @@ int main(int argc, char* argv[]) {
     // Allocate and initialize empty neighbors
     ConstructNeighbors(&neighbors, parameters.N);
 
-    #ifdef QSAP
     // Allocate neighboring boxes
-    neighboring_boxes = (box***) malloc(parameters.NxBox * sizeof(box*));
+    neighboring_boxes = malloc(parameters.NxBox * sizeof(box**));
+    if (neighboring_boxes == NULL) {
+        printf("Memory allocation for neighboring_boxes failed.\n");
+        exit(3);
+    }
     // Assign values to neighboring boxes
     ConstructNeighboringBoxes(parameters, neighboring_boxes);
-    #endif
 
 #endif
 
@@ -61,29 +64,56 @@ int main(int argc, char* argv[]) {
     #endif
     );
     double t = 0;
-    StorePositions(t, &parameters, particles
+    StorePositions(t, parameters, particles
     #ifdef HASHING
     , &boxes, &neighbors
     #endif
     );
+    parameters.next_store_time += parameters.store_time_interval;
+
+    double step;
+    double histogram_count = 0;
+
     while (t < parameters.final_time + EPS) {
         /*
         Update the positions of the particles
         */
-        UpdateParticles(particles, parameters
+        UpdateParticles(particles, parameters, &step
         #ifdef HASHING
         , &boxes, &neighbors, neighboring_boxes, t
         #endif
         );
-        t += parameters.dt;
+        t += step;
+
+        // printf("Time %lf \n", t);
+
         /*
         Store positions every store_time_interval
         */
-        StorePositions(t, &parameters, particles
-        #ifdef HASHING
-        , &boxes, &neighbors
+        if (t + EPS > parameters.next_store_time) {
+            StorePositions(t, parameters, particles
+            #ifdef HASHING
+            , &boxes, &neighbors
+            #endif
+            );
+            parameters.next_store_time += parameters.store_time_interval;
+        }
+
+        #if defined(HASHING) && defined(DENSITY_HISTOGRAM)
+        if (t + EPS > parameters.next_histogram_update) {
+            UpdateHistogram(density_histogram, parameters, boxes, neighbors);
+            histogram_count += 1;
+            parameters.next_histogram_update += parameters.histogram_update_interval;
+        }
+
+        if (t + EPS > parameters.next_histogram_store) {
+            StoreHistogram(t, parameters, density_histogram, histogram_count, &boxes, &neighbors);
+            histogram_count = 0;
+            parameters.next_histogram_store += parameters.histogram_store_interval;
+        }
         #endif
-        );
+
+
     }
 
     /*
@@ -95,20 +125,21 @@ int main(int argc, char* argv[]) {
     free(particles);
     free(command_line_output);
     fclose(parameters.data_file);
-#ifdef OUTPUT_DENSITY
+    #ifdef OUTPUT_DENSITY
     fclose(parameters.density_file);
-#endif
-
+    #endif
 #ifdef HASHING
     FreeBoxes(parameters.NxBox, &boxes);
     free(neighbors);
-    #ifdef QSAP
     FreeNeighboringBoxes(&neighboring_boxes, parameters.NxBox, parameters.NyBox);
+    #ifdef DENSITY_HISTOGRAM
+    fclose(parameters.histogram_file);
     #endif
     #ifdef TESTING
     fclose(parameters.boxes_file);
     #endif
 #endif
 
-    return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot). accessible through echo #$
+    return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot).
+    // accessible through echo $?
 }
