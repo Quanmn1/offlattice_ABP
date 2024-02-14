@@ -1,36 +1,50 @@
 #!/bin/bash
 
-## $1 is the filename (*-data, with the last column corresponding to the local density)
-## $2 is Lx
-## $3 is Ly
-## $4 is the particle size
-## $5 is time increment
+name_exe=pfaps_slab_test2
 
-name="pfaps_test6"
-dt=0.01
-N=200
-Lx=20
-Ly=20
-v=10
-epsilon=0.5
-Dr=1
-final_time=100
-density_box_size=2
+# gcc ABP.c -o $name_exe -lm
+
+# $1 is the filename (*-data, with the last column corresponding to the local density)
+# $2 is Lx
+# $3 is Ly
+# $4 is the particle size
+# $5 is time increment
+
+name_all="pfaps_test3_slab_phase"
+dt=0.05
+N=36000
+rho_small=0.3
+rho_large=1.2
+liquid_fraction=0.4
+Lx=200
+Ly=200
+v=0.5
+# v_min=5
+# v_max=$1
+# rho_m=10
+epsilon=0.125
+final_time=1000
+Dr=$1
+density_box_size=10
 rmax=1
 ratio=1
-size=0.1
-xlim=
+timestep=20
+data_store=20
+update_histo=1
+histo_store=40
 
-# ./abp_pfaps_density $dt $N $Lx $Ly $v $epsilon $Dr 1 $final_time $density_box_size 0 1 0 1 0 1 $name 10
-
+name="$name_all"_"$Dr"
+./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $Dr $rmax $final_time \
+    $density_box_size 0 $update_histo 0 $histo_store 0 $data_store $name 10
+# name="pfaps_test_16"
 file="$name"_data
 dir="$name"_video
 
 if [ ! -d "$dir" ]; then
-    # If not, create it
     mkdir "$dir"
+else
+    rm "$dir"/data*
 fi
-rm "$dir"/data*
 
 # Number of times
 M=$(awk 'NF==1 {m++} END{print m}' $file)
@@ -57,11 +71,9 @@ echo "rho max is $rho"
 # (iread==1) then you should increment i and open a new file, and
 # increment t up to the next time you want to record
 
-# sus about $1>t-eps. check again
-
-awk 'BEGIN{iread=0;i=0;t=0;t_increment='"$dt"';eps=0.000001;file=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
+awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
 NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file}}
-NF>2 {if($1>t-eps) {iread=1;print $1,$2,$3,$4  >> file}}
+NF>2 {iread=1;print $1,$2,$3,$4  >> file}
 ' $file
 
 for i in "$dir"/data*;
@@ -74,22 +86,24 @@ do
     set cbrange [0:$rho]
 
     # set limits to x and y axes
-    set xr[$(echo "scale=1; -$2/2"  | bc):$(echo "scale=1; -$2/2"  | bc)] 
-    set yr[$(echo "scale=1; -$3/2"  | bc):$(echo "scale=1; -$3/2"  | bc)]
+    # set xr[$(echo "scale=1; -$Lx/2"  | bc):$(echo "scale=1; $Lx/2"  | bc)] 
+    # set yr[$(echo "scale=1; -$Ly/2"  | bc):$(echo "scale=1; $Ly/2"  | bc)]
+    set xr[0:$Lx]
+    set yr[0:$Ly]
     set size ratio $ratio
     set terminal png size 1600,1600
     set output "$i.png"
     unset key
-    size=$size
+    size=$rmax
     set style fill solid
     set term png font ",25"
 
     # x:y:size:color
     # skip the first line which contains time
     # pt 7 gives you a filled circle and ps 10 is the size, lt -1 solid line
-    pl "$i" skip 1 us 1:2 w p pt 7 ps .2 lt -1, "$i" us 1:2:(size):4 w circles lc palette 
+    # us 1:2 w p pt 7 ps .2 lt -1, "$i" 
+    pl "$i" skip 1 us 1:2:(size):4 w circles lc palette 
     
-    set term png font ",25" 
     set output
 EOF
 done
@@ -106,9 +120,59 @@ done
 
 # ffmpeg -r 10 -i "$dir"/data%0"$pad"d.png -b:a 16M -vcodec libx264 "$name"-gnuplot-density.mp4 
 
-ffmpeg -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
+ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
 
 # ffmpeg makes nicer movies
 
 rm "$dir"/data*
 
+# Plot histogram
+
+file="$name"_histogram
+dir="$name"_histogram_video
+if [ ! -d "$dir" ]; then
+    mkdir "$dir"
+else
+    rm "$dir"/data*
+fi
+
+
+awk 'BEGIN{iread=0;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file=sprintf("'"$dir"/'histogram%0'"$pad"'d",i)}
+NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file=sprintf("'"$dir"/'histogram%0'"$pad"'d",i)};print $1 >> file}
+NF==2 {iread=1;print $1,$2  >> file}
+' $file
+
+for i in "$dir"/histogram*;
+do
+    # Read time from the first column of the first line
+    Time=$(head -n 1 $i | awk '{printf("%04d",int($1))}')
+    echo "file $i $Time";
+    gnuplot <<EOF
+    set title 'Time $Time'
+
+    # set limits to x and y axes
+    # set xr[$(echo "scale=1; -$Lx/2"  | bc):$(echo "scale=1; $Lx/2"  | bc)] 
+    # set yr[$(echo "scale=1; -$Ly/2"  | bc):$(echo "scale=1; $Ly/2"  | bc)]
+    set xr[-0.1:2]
+    set size ratio $ratio
+    set terminal png size 1600,1600
+    set output "$i.png"
+    unset key
+    set style fill solid
+    # set style data histograms
+    set boxwidth 0.5 relative
+    set term png font ",25"
+    set xtics 0.5
+
+    # x:y:size:color
+    # skip the first line which contains time
+    # pt 7 gives you a filled circle and ps 10 is the size, lt -1 solid line
+    # pl "$i" skip 1 us 2:xticlabels(sprintf("%.2f",column(1)))
+    pl "$i" skip 1 us 1:2 with boxes
+    
+    set term png font ",25" 
+    set output
+EOF
+done
+
+find "$dir" -type f ! -name "*.*" -exec rm -f {} +

@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import os
 import sys
 from matplotlib.ticker import FixedLocator
+from matplotlib.cm import ScalarMappable
 
 def plot_arrow(ax, x, y, theta, scale=0.3):
     dx = np.cos(theta) * scale
@@ -10,7 +11,7 @@ def plot_arrow(ax, x, y, theta, scale=0.3):
     ax.arrow(x-dx/2, y-dy/2, dx, dy, width=0.02, color='C0')
 
 def plot_point(ax, x, y, label='', color='C0'):
-    ax.plot(x, y, marker='.', ms=4, label=label, color=color)
+    ax.plot(x, y, marker='.', ms=10, label=label, color=color)
 
 def get_edges(array):
     distance = (array[1] - array[0])/2
@@ -37,12 +38,14 @@ density_box_size = float(params['density_box_size'])
 number_of_boxes_x = int(Lx/r0/density_box_size)
 number_of_boxes_y = int(Ly/r0/density_box_size)
 rho = N/Lx/Ly
-rho_max = 10*rho
+rho_max = 1.4/r0/r0
 number_of_boxes = number_of_boxes_x * number_of_boxes_y
-max_number = N // number_of_boxes * 10
+max_number = np.ceil(rho_max*r0*r0*density_box_size*density_box_size)
 
 densities = np.zeros(max_number)
 counts = np.zeros(max_number)
+
+cmap = plt.get_cmap("viridis")
 
 # create a folder in which the images are stored
 video_folder = name+'_video'
@@ -74,7 +77,7 @@ with open(histogram_file, 'r') as f:
         elif len(data) == 0:
             # end of a time
             plt.stairs(counts, get_edges(densities), fill=True)
-            plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
+            plt.savefig(name + f'_{counter}.png', dpi=100, bbox_inches='tight')
             plt.close()
 
         else:
@@ -108,14 +111,20 @@ with open(data_file, 'r') as f:
 
         elif len(data) == 0:
             # end of a time
+            sm = ScalarMappable(cmap=cmap)
+            sm.set_array([])  # You need to set an array for the ScalarMappable
+
+            # Add the colorbar to the plot
+            cbar = plt.colorbar(sm)
             # plt.colorbar(label="Density")
-            plt.savefig(name + f'_{counter}.png', dpi=300, bbox_inches='tight')
+            plt.savefig(name + f'_{counter}.png', dpi=100, bbox_inches='tight')
             plt.close()
 
         else:
             x = float(data[0])
             y = float(data[1])
             theta = float(data[2])
-            rho = float(data[3])
-            plot_point(ax, x, y)
+            rhoi = float(data[3])
+            color = cmap(rhoi/rho_max)
+            plot_point(ax, x, y, color=color)
 os.chdir('..')

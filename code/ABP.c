@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
     inputparam input_parameters; // struct
     particle* particles; // pointer to start of array
     double* density_histogram; // store the accumulated density histogram in a time period
+    double** density_matrix; // store the density at each position
 
 #ifdef HASHING
     long** boxes; // first particle in box i, j. malloc in AssignValues
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &particles, &density_histogram);
+    AssignValues(&parameters, input_parameters, &particles, &density_histogram, &density_matrix);
     /*
     Write the params into a file
     */
@@ -58,11 +59,19 @@ int main(int argc, char* argv[]) {
     /*
     Generate initial positions and orientations of particles
     */
-    InitialConditions(particles, parameters
+    #ifdef INIT_SLAB
+    SlabInitialConditions(particles, parameters
     #ifdef HASHING
     , &boxes, &neighbors, neighboring_boxes
     #endif
     );
+    #else
+    RandomInitialConditions(particles, parameters
+    #ifdef HASHING
+    , &boxes, &neighbors, neighboring_boxes
+    #endif
+    );
+    #endif
     double t = 0;
     StorePositions(t, parameters, particles
     #ifdef HASHING
@@ -71,8 +80,25 @@ int main(int argc, char* argv[]) {
     );
     parameters.next_store_time += parameters.store_time_interval;
 
-    double step;
+    double step = parameters.dt;
     double histogram_count = 0;
+    double store = 0;
+
+    int progress = 0;
+    double next_report_progress = 0.0;
+
+    // for (int i = parameters.NyBox-1; i >= 0; i--) {
+    //     for (int j=0; j<parameters.NxBox;j++) {
+    //         fprintf(parameters.histogram_file, "%ld \t", boxes[j][i]);
+    //     }
+    //     fprintf(parameters.histogram_file, "\n");
+    // }
+    // for (int i = 0; i < parameters.N*2; i++) {
+    //     fprintf(parameters.histogram_file, "%ld \t", neighbors[i]);
+    // }
+    // fprintf(parameters.histogram_file, "\n");
+    // fflush(parameters.histogram_file);
+
 
     while (t < parameters.final_time + EPS) {
         /*
@@ -101,17 +127,26 @@ int main(int argc, char* argv[]) {
 
         #if defined(HASHING) && defined(DENSITY_HISTOGRAM)
         if (t + EPS > parameters.next_histogram_update) {
-            UpdateHistogram(density_histogram, parameters, boxes, neighbors);
+            if (t + EPS > parameters.next_histogram_store) store = 1;
+            else store = 0;
+            UpdateDensity(density_histogram, density_matrix, parameters, boxes, neighbors, store);
             histogram_count += 1;
             parameters.next_histogram_update += parameters.histogram_update_interval;
         }
 
         if (t + EPS > parameters.next_histogram_store) {
-            StoreHistogram(t, parameters, density_histogram, histogram_count, &boxes, &neighbors);
+            StoreDensity(t, parameters, density_histogram, density_matrix, histogram_count, &boxes, &neighbors);
             histogram_count = 0;
             parameters.next_histogram_store += parameters.histogram_store_interval;
         }
         #endif
+
+        if (t > next_report_progress) {
+            fprintf(parameters.param_file, "Simulation %d%% done!\n", progress);
+            fflush(parameters.param_file);
+            next_report_progress += parameters.final_time/10;
+            progress += 10;
+        }
 
 
     }
@@ -121,25 +156,23 @@ int main(int argc, char* argv[]) {
     If 2d array: look at each column and free each columns
     Try not to declare array inside a function that you call a lot
     */
-    
+
     free(particles);
     free(command_line_output);
+    fclose(parameters.param_file);
     fclose(parameters.data_file);
-    #ifdef OUTPUT_DENSITY
-    fclose(parameters.density_file);
-    #endif
 #ifdef HASHING
     FreeBoxes(parameters.NxBox, &boxes);
     free(neighbors);
     FreeNeighboringBoxes(&neighboring_boxes, parameters.NxBox, parameters.NyBox);
     #ifdef DENSITY_HISTOGRAM
     fclose(parameters.histogram_file);
-    #endif
-    #ifdef TESTING
-    fclose(parameters.boxes_file);
+    FreeDensity(parameters.number_of_boxes_x, &density_matrix);
+    fclose(parameters.density_file);
     #endif
 #endif
 
+    printf("Simulation done!\n");
     return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot).
     // accessible through echo $?
 }
