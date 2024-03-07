@@ -1,5 +1,5 @@
 // Pre-compiler options
-// #include "./Options.h"
+#include "Options.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,11 +24,11 @@ typedef struct param {
     #endif
     double Lx;
     double Ly;
-#ifdef QSAP
+#ifdef QSAP_TANH
     double rho_m;
     double v_max;
     double v_min;
-#elif defined QSAP
+#elif defined QSAP_EXP
     double rho_m;
     double v;
     double lambda;
@@ -70,6 +70,7 @@ typedef struct param {
 #endif
     FILE* param_file;
     FILE* data_file;
+    FILE* input_file;
 } param;
 
 /*
@@ -78,6 +79,7 @@ Store parameters used only at the beginning
 typedef struct inputparam {
     char name[1000];
     double Dr;
+    char resume[10];
 #ifdef ArbitraryKernel
     char kernel_name[10];
 #endif
@@ -112,6 +114,10 @@ typedef struct box {
 #endif
 } box;
 #endif
+
+void ERROR(int exit_code) {
+    THROW;
+}
 
 void ReadInputParameters(int argc, char* argv[], char** command_line_output, param* parameters, inputparam* input_parameters){
     /*
@@ -156,7 +162,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "Ly ");
     number_of_input_parameters++;
 
-#ifdef QSAP
+#ifdef QSAP_TANH
     strcat(*command_line_output, "rho_m ");
     number_of_input_parameters++;
 
@@ -166,7 +172,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "v_max ");
     number_of_input_parameters++;
 
-#elif defined QSAP2
+#elif defined QSAP_EXP
     strcat(*command_line_output, "rho_m ");
     number_of_input_parameters++;
 
@@ -244,6 +250,9 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "file_name ");
     number_of_input_parameters++;
 
+    strcat(*command_line_output, "resume? ");
+    number_of_input_parameters++;
+
 #ifdef MT
     strcat(*command_line_output, "seed ");
     number_of_input_parameters++;
@@ -265,11 +274,11 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 #endif
     parameters[0].Lx = strtod(argv[i], NULL); i++;
     parameters[0].Ly = strtod(argv[i], NULL); i++;
-#ifdef QSAP
+#ifdef QSAP_TANH
     parameters[0].rho_m = strtod(argv[i], NULL); i++;
     parameters[0].v_min = strtod(argv[i], NULL); i++;
     parameters[0].v_max = strtod(argv[i], NULL); i++;
-#elif defined QSAP2
+#elif defined QSAP_EXP
     parameters[0].rho_m = strtod(argv[i], NULL); i++;
     parameters[0].v = strtod(argv[i], NULL); i++;
     parameters[0].lambda = strtod(argv[i], NULL); i++;
@@ -303,6 +312,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].next_store_time = strtod(argv[i], NULL); i++;
     parameters[0].store_time_interval = strtod(argv[i], NULL); i++;
     sprintf(input_parameters[0].name , "%s", argv[i]); i++;
+    sprintf(input_parameters[0].resume , "%s", argv[i]); i++;
 #ifdef MT
     input_parameters[0].seed = (long long) strtod(argv[i], NULL); i++;
 #endif
@@ -314,28 +324,41 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     This function allocates memory to the particles array, and calculate some parameters
     */
     #ifdef INIT_SLAB
-    int N_left = (int) (parameters[0].rho_small * parameters[0].Lx * (1-parameters[0].liquid_fraction) * parameters[0].Ly);
-    int N_right =  (int) (parameters[0].rho_large * parameters[0].Lx * parameters[0].liquid_fraction * parameters[0].Ly);
+    long N_left = (long) (parameters[0].rho_small * parameters[0].Lx * parameters[0].Ly * (1-parameters[0].liquid_fraction));
+    long N_right =  (long) (parameters[0].rho_large * parameters[0].Lx * parameters[0].Ly * parameters[0].liquid_fraction);
     parameters[0].N = N_left + N_right;
     #endif
 
-    char filename[1010]; // string of the filenames
-    // alloc a block of mem to the pointer (array) particles
-    particles[0] = malloc(sizeof(particle) * parameters[0].N);
-    if (particles[0] == NULL) {
-        printf("Memory allocation for particles failed.\n");
-        exit(3);
-    }
+    char filename[1020]; // string of the filenames
 
     // Assign the files
     sprintf(filename, "%s_param",input_parameters.name); // print name into filename
     parameters[0].param_file = fopen(filename, "w");
+    freopen(filename, "a", stderr);
 
-    sprintf(filename, "%s_data",input_parameters.name);
-    parameters[0].data_file = fopen(filename, "w");
+    if (strcmp(input_parameters.resume,"yes") == 0) {
+        sprintf(filename, "%s_video/last_state",input_parameters.name);
+        parameters[0].input_file = fopen(filename, "r");
+
+        sprintf(filename, "%s_data",input_parameters.name);
+        parameters[0].data_file = fopen(filename, "a");
+    }
+    else {
+        parameters[0].input_file = NULL;
+        
+        sprintf(filename, "%s_data",input_parameters.name);
+        parameters[0].data_file = fopen(filename, "w");
+    }
 
     // Calculate the noise amplitude for each time step
     parameters[0].noiseamp = sqrt(2 * parameters[0].dt * input_parameters.Dr);
+
+    // alloc a block of mem to the pointer (array) particles
+    particles[0] = malloc(sizeof(particle) * parameters[0].N);
+    if (particles[0] == NULL) {
+        fprintf(stderr, "Memory allocation for particles failed.\n");
+        ERROR(3);
+    }
 
 #ifdef HASHING
     parameters[0].box_size = parameters[0].interaction_range;
@@ -346,16 +369,25 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     // Check that Lx, Ly is a multiple of box_size
     if ((fabs(parameters[0].Lx - parameters[0].NxBox*parameters[0].box_size) > EPS) || 
         (fabs(parameters[0].Ly - parameters[0].NyBox*parameters[0].box_size) > EPS)) {
-        printf("Length not an integer multiple of size of box");
-        exit(2);
+        fprintf(stderr, "Length not an integer multiple of size of box.\n");
+        ERROR(2);
     }
 
     #ifdef DENSITY_HISTOGRAM
-    sprintf(filename, "%s_histogram",input_parameters.name);
-    parameters[0].histogram_file = fopen(filename, "w");
+    if (strcmp(input_parameters.resume,"yes") == 0) {
+        sprintf(filename, "%s_histogram",input_parameters.name);
+        parameters[0].histogram_file = fopen(filename, "a");
 
-    sprintf(filename, "%s_density",input_parameters.name);
-    parameters[0].density_file = fopen(filename, "w");
+        sprintf(filename, "%s_density",input_parameters.name);
+        parameters[0].density_file = fopen(filename, "a");
+    }
+    else {
+        sprintf(filename, "%s_histogram",input_parameters.name);
+        parameters[0].histogram_file = fopen(filename, "w");
+
+        sprintf(filename, "%s_density",input_parameters.name);
+        parameters[0].density_file = fopen(filename, "w");
+    }
 
     int number_of_boxes_x = (int) parameters[0].NxBox / parameters[0].density_box_size;
     int number_of_boxes_y = (int) parameters[0].NyBox / parameters[0].density_box_size;
@@ -363,8 +395,8 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     parameters[0].number_of_boxes_y = number_of_boxes_y;
     if ((abs(parameters[0].NxBox - number_of_boxes_x*parameters[0].density_box_size) > EPS) || 
         (abs(parameters[0].NyBox - number_of_boxes_y*parameters[0].density_box_size) > EPS)) {
-        printf("System does not contain integer numbers of density boxes\n");
-        exit(2);
+        fprintf(stderr, "System does not contain integer numbers of density boxes.\n");
+        ERROR(2);
     }
 
     parameters[0].density_box_area = parameters[0].density_box_size*parameters[0].density_box_size * \
@@ -378,14 +410,14 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
 
     density_histogram[0] = malloc((parameters[0].max_number+1) * sizeof(double));
     if (density_histogram[0] == NULL) {
-        printf("Memory allocation for density_histogram failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for density_histogram failed.\n");
+        ERROR(3);
     }
 
     density_matrix[0] = malloc(number_of_boxes_x * sizeof(double*));
     if (density_matrix[0] == NULL) {
-        printf("Memory allocation for density matrix failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for density_matrix failed.\n");
+        ERROR(3);
     }
     for (int i = 0; i < number_of_boxes_x; i++) {
         density_matrix[0][i] = malloc(number_of_boxes_y * sizeof(double));
@@ -405,8 +437,8 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
         parameters[0].kernel_normalization = RadialIntegrate(parameters[0].kernel, 0, 1, num_intervals);
     }
     else {
-        printf("Kernel not supported! Supported kernel: tanh, exp");
-        exit(2);
+        fprintf(stderr, , "Kernel not supported! Supported kernel: tanh, exp.\n");
+        ERROR(2);
     }
 #endif
 #ifdef MT
@@ -428,9 +460,11 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
     #ifdef PFAP
     double pe = parameters.v/input_parameters.Dr/(parameters.interaction_range*0.89);
     fprintf(parameters.param_file, "Density = %lf; Pe = %lf \n", rho, pe);
-    #elif defined QSAP
+    #elif defined QSAP_TANH
     double v_ratio = parameters.v_max/parameters.v_min;
-    fprintf(parameters.param_file, "%lf \t %lf \n", rho, v_ratio);
+    fprintf(parameters.param_file, "Rho = %lf \t v0/v1 = %lf \n", rho, v_ratio);
+    #elif defined QSAP_EXP
+    fprintf(parameters.param_file, "Rho = %lf \t lambda = %lf \n", rho, parameters.lambda);
     #endif
 
     fflush(parameters.param_file); // empty the buffer into the file
@@ -564,8 +598,8 @@ void ConstructBoxes(param parameters, long*** boxes) {
     // Construct and initialize boxes
     boxes[0] = malloc(NxBox * sizeof(long*));
     if (boxes[0] == NULL) {
-        printf("Memory allocation for boxes failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for boxes failed.\n");
+        ERROR(3);
     }
     for ( i = 0; i < NxBox; i++) {
         boxes[0][i] = malloc(NyBox * sizeof(long));
@@ -579,8 +613,8 @@ void ConstructNeighbors(long** neighbors, long N) {
     // set all entries to -1: no relation yet between particles
 	neighbors[0] = malloc((2*N) * sizeof(long));
     if (neighbors[0] == NULL) {
-        printf("Memory allocation for neighbors failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for neighbors failed.\n");
+        ERROR(3);
     }
 	for( int i = 0 ; i < 2*N; i++)
 		neighbors[0][i] = -1;
@@ -632,8 +666,8 @@ void RemoveFromBox(long index_particle, int bi, int bj, long*** boxes, long** ne
         // get the previous one
         prev = neighbors[0][2*index_particle];
         if (prev == -1) {
-            printf("boxes and neighbors uncompatible: %d %d\n", bi, bj);
-            exit(5);
+            fprintf(stderr, "boxes and neighbors uncompatible: %d %d\n", bi, bj);
+            ERROR(5);
         }
         // The next of the previous becomes the current next
         neighbors[0][2*prev+1] = next;
@@ -755,9 +789,13 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
             }
         }
     }
-    #ifdef QSAP
+    #ifdef QSAP_TANH
     for (i=0;i<parameters.N;i++) {
         particles[i].v = DensityDependentSpeed(particles[i].rho, parameters.rho_m, parameters.v_min, parameters.v_max);
+    }
+    #elif defined(QSAP_EXP)
+    for (i=0;i<parameters.N;i++) {
+        particles[i].v = DensityDependentSpeed2(particles[i].rho, parameters.rho_m, parameters.v, parameters.lambda, parameters.phi);
     }
     #endif
 }
@@ -857,6 +895,59 @@ double Distance2(long i, long j, particle* particles, param parameters) {
     return dr2;
 }
 
+
+void GivenInitialConditions(FILE* input, particle* particles, param parameters, double *t
+                        #ifdef HASHING
+                        , long*** boxes, long** neighbors, box*** neighboring_boxes
+                        #endif
+                        ){
+    /*
+    Read initial conditions from input file.
+    */
+    long i;
+    double x,y,theta;
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
+
+    fscanf(input,"%lg\n",t);
+
+    for(i=0;i<parameters.N;i++){
+        if(fscanf(input,"%lg \t %lg \t %lg \t %*g\n",&x,&y,&theta)!=EOF) {
+            particles[i].x=x;
+            particles[i].y=y;
+            particles[i].theta=theta;            
+            particles[i].fx = 0;
+            particles[i].fy = 0;
+            #if defined NONE || defined PFAP
+            particles[i].v = parameters.v;
+            #endif
+            #ifdef HASHING
+            // Store the box and neighbor information of particles
+            GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+            AddInBox(i, bi, bj, boxes, neighbors, particles);
+            #endif
+        }
+        else {
+            fprintf(stderr, "Not the right number of lines in input file\n");
+            ERROR(4);
+        }
+    }
+    fclose(parameters.input_file);
+
+    #ifdef HASHING
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    #if defined PFAP
+        MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    #endif
+    #endif
+
+}
+
+
 void RandomInitialConditions(particle* particles, param parameters
                         #ifdef HASHING
                         , long*** boxes, long** neighbors, box*** neighboring_boxes
@@ -890,8 +981,8 @@ void RandomInitialConditions(particle* particles, param parameters
             }
         }
         #else
-        particles[i].x = Lx*(-.5+genrand64_real3()); // From 0 to Lx
-        particles[i].y = Ly*(-.5+genrand64_real3()); // From 0 to Ly
+        particles[i].x = Lx*(genrand64_real3()); // From 0 to Lx
+        particles[i].y = Ly*(genrand64_real3()); // From 0 to Ly
         #endif
 
         particles[i].theta = 2*M_PI*genrand64_real3();
@@ -915,7 +1006,69 @@ void RandomInitialConditions(particle* particles, param parameters
     #endif                        
 }
 
-void SlabInitialConditions(particle* particles, param parameters
+void SlabRandomInitialConditions(particle* particles, param parameters
+                        #ifdef HASHING
+                        , long*** boxes, long** neighbors, box*** neighboring_boxes
+                        #endif
+                        ){
+    /*
+    Create two slabs of particles with different densities.
+    Don't use with PFAPs.
+    */
+
+    long i;
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    double liquid_fraction = parameters.liquid_fraction;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
+
+    long Ngas = (long) (parameters.rho_small * Lx * Ly * (1-liquid_fraction));
+    long Nliquid = (long) (parameters.rho_large * Lx * Ly * liquid_fraction);
+
+    for (i=0; i<Ngas; i++){
+        particles[i].x = Lx*(1-liquid_fraction)*(-.5+genrand64_real3());
+        if (particles[i].x < 0) particles[i].x += Lx;
+        particles[i].y = Ly*genrand64_real3(); // From 0 to Ly
+
+        particles[i].theta = 2*M_PI*genrand64_real3();
+        particles[i].fx = 0;
+        particles[i].fy = 0;
+        #if defined NONE || defined PFAP
+        particles[i].v = parameters.v;
+        #endif
+        #ifdef HASHING
+        // Store the box and neighbor information of particles
+        GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+        AddInBox(i, bi, bj, boxes, neighbors, particles);
+        #endif
+    }
+
+    for (i=Ngas; i<Ngas+Nliquid; i++){
+        particles[i].x = Lx*liquid_fraction*genrand64_real3() + Lx*(0.5-liquid_fraction/2);
+        particles[i].y = Ly*genrand64_real3(); // From 0 to Ly
+
+        particles[i].theta = 2*M_PI*genrand64_real3();
+        particles[i].fx = 0;
+        particles[i].fy = 0;
+        #if defined NONE || defined PFAP
+        particles[i].v = parameters.v;
+        #endif
+        #ifdef HASHING
+        // Store the box and neighbor information of particles
+        GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+        AddInBox(i, bi, bj, boxes, neighbors, particles);
+        #endif
+    }
+
+    #ifdef HASHING
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    #endif                        
+}
+
+void SlabLatticeInitialConditions(particle* particles, param parameters
                         #ifdef HASHING
                         , long*** boxes, long** neighbors, box*** neighboring_boxes
                         #endif
@@ -933,10 +1086,10 @@ void SlabInitialConditions(particle* particles, param parameters
     #endif
 
     double a = 0.9 * parameters.interaction_range; //horizontal lattice spacing
-    double h = a*cos(M_PI/6.); //heiht between two layers. Equal to a*cos(pi/6)
+    double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
     long Ngas = (long) (parameters.rho_small * Lx * Ly * (1-liquid_fraction));
     long Nliquid = (long) (parameters.rho_large * Lx * Ly * liquid_fraction);
-    int NxL = floor(Lx * liquid_fraction     / a ); //Number of sites in x direction in liquid phase
+    int NxL = ceil(Lx * liquid_fraction     / a ); //Number of sites in x direction in liquid phase
     int NxG = floor(Lx * (1-liquid_fraction) / a ); //Number of sites in x direction in gas phase
     int Ny = Ny  = floor(Ly / h );  //Number of sites in y direction
     long NsitesGas = NxG*Ny; //Total number of available sites in the gas phase
@@ -951,8 +1104,8 @@ void SlabInitialConditions(particle* particles, param parameters
     GasPhase    = calloc(NsitesGas,sizeof(int));
     LiquidPhase = calloc(NsitesLiq,sizeof(int));
     if (GasPhase==NULL || LiquidPhase==NULL) {
-        printf("Memory allocation for GasPhase or LiquidPhase failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for GasPhase or LiquidPhase failed.\n");
+        ERROR(3);
     }
     //if there are enough spaces for the Ngas particles
     if(Ngas<=NsitesGas){
@@ -970,8 +1123,8 @@ void SlabInitialConditions(particle* particles, param parameters
         }
     }
     else {
-        printf("Not enough gas sites: %ld > %ld\n", Ngas, NsitesGas);
-        exit(4);
+        fprintf(stderr, "Not enough gas sites: %ld > %ld\n", Ngas, NsitesGas);
+        ERROR(4);
     }
 
     //if there are enough sites for the Nliquid particles
@@ -992,8 +1145,8 @@ void SlabInitialConditions(particle* particles, param parameters
         }
     }
     else {
-        printf("Not enough liquid sites: %ld > %ld\n", Nliquid, NsitesLiq);
-        exit(4);
+        fprintf(stderr, "Not enough liquid sites: %ld > %ld\n", Nliquid, NsitesLiq);
+        ERROR(4);
     }
     
     fprintf(parameters.param_file,"Actual gas density is %lf\n", Ngas/Lx/Ly/(1-liquid_fraction));
@@ -1056,10 +1209,10 @@ void SlabInitialConditions(particle* particles, param parameters
     }
 
     fprintf(parameters.param_file,"Total number of particles placed %ld\n",nb);
-    fprintf(parameters.param_file,"Planned number of particles %ld\n",Ngas+Nliquid);
+    fprintf(parameters.param_file,"Planned number of particles %ld or %ld\n",Ngas+Nliquid,parameters.N);
     if(nb!=parameters.N) {
-        printf("Wrong number of particles placed\n");
-        exit(4);
+        fprintf(stderr, "Wrong number of particles placed\n");
+        ERROR(4);
     }
     free(GasPhase);
     free(LiquidPhase);
@@ -1201,8 +1354,8 @@ void UpdateDensity(double* density_histogram, double** density_matrix, param par
             if (n0 <= parameters.max_number)  
                 density_histogram[n0] += 1.;
             else {
-                printf("max_number %ld too small, recorded n = %ld \n", parameters.max_number, n0);
-                exit(5);
+                fprintf(stderr, "max_number %ld too small, recorded n = %ld \n", parameters.max_number, n0);
+                ERROR(4);
             }
 
             if (store == 1) {
@@ -1230,8 +1383,8 @@ void StoreDensity(double t, param parameters, double* density_histogram, double*
 
     // Store density matrix
     fprintf(parameters.density_file, "%lf\n", t);
-    for(i = 0; i < parameters.number_of_boxes_x; i++) {
-        for(j = 0 ; j < parameters.number_of_boxes_y; j++) {
+    for(j = 0; j < parameters.number_of_boxes_y; j++) {
+        for(i = 0 ; i < parameters.number_of_boxes_x; i++) {
             fprintf(parameters.density_file, "%lf \t", density_matrix[i][j]);
         }
         fprintf(parameters.density_file, "\n");

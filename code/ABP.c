@@ -4,10 +4,18 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <setjmp.h>
 
 #ifdef MT
 #include "mt19937-64.c" // RNG
 #endif
+
+// Implement one huge try-catch block to clean up memory if encounter an error.
+jmp_buf ex_buf__; // define the buffer here to be usable in ABP_functions.c. 
+#define TRY do{ if( !setjmp(ex_buf__) ){ // If want multiple blocks, reset the buffer in here
+#define CATCH } else { // If want multiple kinds of errors, use a switch case statement.
+#define ETRY } }while(0) // Terminate after one interation. This is to make the block one complete statement.
+#define THROW longjmp(ex_buf__, 1) // Allow for a variable here if want multiple kinds of errors
 
 #include "ABP_functions.c"
 
@@ -25,6 +33,7 @@ int main(int argc, char* argv[]) {
     box*** neighboring_boxes; // [i][j] is array of neighbors of box i, j. Constant.
 #endif
 
+TRY {
     /*
     Read command line input into parameters and input_parameters
     */
@@ -48,31 +57,49 @@ int main(int argc, char* argv[]) {
     // Allocate neighboring boxes
     neighboring_boxes = malloc(parameters.NxBox * sizeof(box**));
     if (neighboring_boxes == NULL) {
-        printf("Memory allocation for neighboring_boxes failed.\n");
-        exit(3);
+        fprintf(stderr, "Memory allocation for neighboring_boxes failed.\n");
+        ERROR(3);
     }
     // Assign values to neighboring boxes
     ConstructNeighboringBoxes(parameters, neighboring_boxes);
 
 #endif
 
+    double t = 0;
     /*
     Generate initial positions and orientations of particles
     */
-    #ifdef INIT_SLAB
-    SlabInitialConditions(particles, parameters
-    #ifdef HASHING
-    , &boxes, &neighbors, neighboring_boxes
-    #endif
-    );
+    if (parameters.input_file == NULL) {
+    #ifdef INIT_SLAB 
+        #ifdef PFAP
+        SlabLatticeInitialConditions(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes
+        #endif
+        );
+        #else
+        SlabRandomInitialConditions(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes
+        #endif
+        );
+        #endif
     #else
-    RandomInitialConditions(particles, parameters
-    #ifdef HASHING
-    , &boxes, &neighbors, neighboring_boxes
+        RandomInitialConditions(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes
+        #endif
+        );
     #endif
-    );
-    #endif
-    double t = 0;
+    }
+    else {
+        GivenInitialConditions(parameters.input_file, particles, parameters, &t
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes
+        #endif
+        );
+    }
+    
     StorePositions(t, parameters, particles
     #ifdef HASHING
     , &boxes, &neighbors
@@ -85,7 +112,10 @@ int main(int argc, char* argv[]) {
     double store = 0;
 
     int progress = 0;
-    double next_report_progress = 0.0;
+    double next_report_progress = t;
+    double duration = parameters.final_time - t;
+
+    // printf("lg\n", t);
 
     // for (int i = parameters.NyBox-1; i >= 0; i--) {
     //     for (int j=0; j<parameters.NxBox;j++) {
@@ -110,8 +140,6 @@ int main(int argc, char* argv[]) {
         #endif
         );
         t += step;
-
-        // printf("Time %lf \n", t);
 
         /*
         Store positions every store_time_interval
@@ -144,23 +172,25 @@ int main(int argc, char* argv[]) {
         if (t > next_report_progress) {
             fprintf(parameters.param_file, "Simulation %d%% done!\n", progress);
             fflush(parameters.param_file);
-            next_report_progress += parameters.final_time/10;
+            next_report_progress += duration/10;
             progress += 10;
         }
-
-
     }
-
+    printf("Simulation done!\n");
+    THROW; // To transition into cleaning memory.
+}
+CATCH
+{
     /*
     Free up memory: every array.
     If 2d array: look at each column and free each columns
     Try not to declare array inside a function that you call a lot
     */
-
     free(particles);
     free(command_line_output);
     fclose(parameters.param_file);
     fclose(parameters.data_file);
+    fclose(stderr);
 #ifdef HASHING
     FreeBoxes(parameters.NxBox, &boxes);
     free(neighbors);
@@ -168,11 +198,13 @@ int main(int argc, char* argv[]) {
     #ifdef DENSITY_HISTOGRAM
     fclose(parameters.histogram_file);
     FreeDensity(parameters.number_of_boxes_x, &density_matrix);
+    free(density_histogram);
     fclose(parameters.density_file);
     #endif
+    printf("Cleanup done!\n");
 #endif
-
-    printf("Simulation done!\n");
+}
+ETRY;
     return 0; // terminal recognizes 0 for success and others for error (flagged by a red dot).
     // accessible through echo $?
 }
