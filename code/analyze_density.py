@@ -155,6 +155,11 @@ rho_gases_std = rho_gases_std[ind]
 rho_liquids_std = rho_liquids_std[ind]
 Pes = v/Drs*np.float_power(2, 1/6)
 
+with open(test_name + '_phase_diagram', 'w') as f:
+    f.write("Pe \t rho_gas \t rho_liquid\n")
+    for i in range(len(Pes)):
+        f.write(f"{Pes[i]:.2f} \t {rho_gases[i]:.3f} \t {rho_liquids[i]:.3f}\n")
+
 fig, ax = plt.subplots(figsize = (6,6))
 ax.set_ylabel('Pe')
 ax.set_xlabel('Density')

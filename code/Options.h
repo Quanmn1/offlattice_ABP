@@ -1,8 +1,8 @@
 #define MT
 #define PBC
 // #define QSAP_TANH
-// #define QSAP_EXP
-#define PFAP
+#define QSAP_EXP
+// #define PFAP
 // #define NONE
 // #define POSITION_DEPENDENT_SPEED
 #if defined(QSAP_TANH) || defined(QSAP_EXP)

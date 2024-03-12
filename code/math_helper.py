@@ -37,3 +37,20 @@ def translate_pbc(x_lattice, Lx, distance):
     Same index, different position.
     """
     return (x_lattice+distance) % Lx
+
+def coarsen(array, num_combined, normalize=False):
+    """
+    Each element of the returned array is average of the next num_combined elements of array.
+    """
+    original_len = len(array)
+    result = np.zeros(original_len//num_combined)
+    for i in range(len(result)):
+        result[i] = np.average(array[i*num_combined:(i+1)*num_combined])
+    if normalize:
+        return result/np.sum(result)
+    else:
+        return result
+    
+def nonzero(first, *arrs):
+    ind = np.nonzero(first)
+    return [first[ind]] + [arr[ind] for arr in arrs]

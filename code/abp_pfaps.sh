@@ -4,7 +4,7 @@ name_exe="abp_pfaps_slab_resumable"
 
 # gcc ABP.c -o $name_exe -lm
 
-name_all="pfaps_test11_diagram"
+name_all="pfaps_test13_diagram"
 dt=0.05
 # N=36000
 liquid_fraction=0.5
@@ -18,14 +18,12 @@ Dr=$1
 # rho_m=10
 # rho_large=$(echo "scale=1; (($v_max/$v_min-2)/10*1.5+1.5)*$rho_m"  | bc)
 # rho_small=$(echo "scale=1; (1-($v_max/$v_min-2)/10)*$rho_m"  | bc)
-rho_large=$(echo "scale=2; 1.21 - 2.5 * $Dr"  | bc)
-rho_small=$(echo "scale=2; 15.5 * $Dr - 0.2"  | bc)
-# rho_large=1.12
-# rho_small=0.30
+rho_large=$(echo "scale=3; 1.169 - 3 * $Dr"  | bc)
+rho_small=$(echo "scale=3; 11.2 * $Dr - 0.1"  | bc)
 echo "rho_large = $rho_large"
 echo "rho_small = $rho_small"
 epsilon=1
-final_time=1100
+final_time=10000
 density_box_size=5
 rmax=1
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
@@ -33,8 +31,8 @@ timestep=20
 data_store=20
 update_histo=1
 histo_store=20
-start_time=1000
-resume="yes"
+start_time=0
+resume="no"
 
 name="$name_all"_"$Dr"
 ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $Dr $rmax $final_time \
@@ -53,9 +51,7 @@ fi
 
 # Number of times
 M=$(awk 'NF==1 {m++} END{print m}' $file)
-echo "M=$M"
 pad=$(echo ${#M} | awk '{print $1+1}')
-echo "pad $pad"
 
 #Calcul of max density
 rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)

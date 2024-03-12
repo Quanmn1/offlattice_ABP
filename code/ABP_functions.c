@@ -456,6 +456,8 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
     
     fprintf(parameters.param_file, "\n");
 
+    fprintf(parameters.param_file, "%ld\n", parameters.N);
+
     double rho = parameters.N/parameters.Lx/parameters.Ly;
     #ifdef PFAP
     double pe = parameters.v/input_parameters.Dr/(parameters.interaction_range*0.89);
@@ -1006,6 +1008,7 @@ void RandomInitialConditions(particle* particles, param parameters
     #endif                        
 }
 
+#ifdef INIT_SLAB
 void SlabRandomInitialConditions(particle* particles, param parameters
                         #ifdef HASHING
                         , long*** boxes, long** neighbors, box*** neighboring_boxes
@@ -1227,7 +1230,7 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     #endif
     #endif
 }
-
+#endif
 
 void UpdateParticles(particle* particles, param parameters, double* step
     #ifdef HASHING 
