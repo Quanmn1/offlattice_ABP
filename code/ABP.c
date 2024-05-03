@@ -85,11 +85,20 @@ TRY {
         );
         #endif
     #else
+        fprintf(parameters.param_file, "Initializing!\n");
+        #ifdef PFAP
+        LatticeInitialConditions(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors, neighboring_boxes
+        #endif
+        );
+        #else
         RandomInitialConditions(particles, parameters
         #ifdef HASHING
         , &boxes, &neighbors, neighboring_boxes
         #endif
         );
+        #endif
     #endif
     }
     else {
@@ -128,6 +137,9 @@ TRY {
     // }
     // fprintf(parameters.histogram_file, "\n");
     // fflush(parameters.histogram_file);
+
+    fprintf(parameters.param_file, "Starting simulation!\n");
+    fflush(parameters.param_file);
 
 
     while (t < parameters.final_time + EPS) {
@@ -172,8 +184,8 @@ TRY {
         if (t > next_report_progress) {
             fprintf(parameters.param_file, "Simulation %d%% done!\n", progress);
             fflush(parameters.param_file);
-            next_report_progress += duration/10;
-            progress += 10;
+            next_report_progress += duration/20;
+            progress += 5;
         }
     }
     printf("Simulation done!\n");
@@ -188,6 +200,8 @@ CATCH
     */
     free(particles);
     free(command_line_output);
+    fflush(stderr);
+    fflush(parameters.param_file);
     fclose(parameters.param_file);
     fclose(parameters.data_file);
     fclose(stderr);
@@ -201,6 +215,7 @@ CATCH
     free(density_histogram);
     fclose(parameters.density_file);
     #endif
+    if (parameters.input_file != NULL) fclose(parameters.input_file);
     printf("Cleanup done!\n");
 #endif
 }

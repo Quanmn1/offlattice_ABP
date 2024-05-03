@@ -1,35 +1,24 @@
 #!/bin/bash
 
-name_exe="abp_pfaps_slab_resumable"
+name_exe="abp_pfaps_qsaps"
 
 # gcc ABP.c -o $name_exe -lm
 
-name_all="pfaps_test18_diagram"
-dt=0.05
-# N=36000
-Lx=500
-Ly=200
+name_all="pfaps_qsaps_test4"
+dt=0.01
+N=17500
+Lx=30
+Ly=30
+rho_m=25
 v=0.5
+lambda=1
+phi=10
+rmax_qsap=1
 epsilon=0.125
-Pe=$1
-Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
-# v_min=5
-# v_max=$1
-# rho_m=10
-# rho_large=$(echo "scale=1; (($v_max/$v_min-2)/10*1.5+1.5)*$rho_m"  | bc)
-# rho_small=$(echo "scale=1; (1-($v_max/$v_min-2)/10)*$rho_m"  | bc)
-# rho_large=$(echo "scale=3; 1.169 - 3 * $Dr"  | bc)
-# rho_small=$(echo "scale=3; 11.2 * $Dr - 0.1"  | bc)
-# echo "rho_large = $rho_large"
-# echo "rho_small = $rho_small"
-rho_0=0.9
-rho_large=$3
-rho_small=$2
-liquid_fraction=$(echo "scale=3; ( $rho_0-$rho_small ) / ( $rho_large-$rho_small )" | bc)
-epsilon=1
-final_time=10000
-density_box_size=4
-rmax=1
+rmax_pfap=$1
+Dr=0.1
+final_time=1000
+density_box_size=2
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=50
 data_store=$timestep
@@ -38,10 +27,13 @@ histo_store=$timestep
 start_time=0
 resume="no"
 
-name="$name_all"_"$Dr"
+name="$name_all"_"$rmax_pfap"
 {
-    time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+
+    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
 } \
 2>> "$name"_param
 
@@ -100,7 +92,7 @@ do
     set terminal png size 2000,1000
     set output "$i.png"
     unset key
-    size=$rmax
+    size=$rmax_pfap
     set style fill solid
     set term png font ",25"
 

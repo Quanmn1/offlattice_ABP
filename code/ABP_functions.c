@@ -9,7 +9,7 @@
 
 #define EPS 1e-7
 #define NORMALIZATION_EXP 0.46651239317833015
-#define DENSITY_MAX 4
+#define DENSITY_MAX 2
 
 /*
 store parameters used in the loop
@@ -33,14 +33,17 @@ typedef struct param {
     double v;
     double lambda;
     double phi;
-#elif defined PFAP
+#endif
+#ifdef PFAP
     double epsilon;
+    #if !defined(QSAP)
     double v;
-    // double mu;   // mu=1
+    #endif
+    double interaction_range_pfap;
 #elif defined NONE
     double v;
 #endif
-    double interaction_range;
+    double interaction_range_qsap;
 #ifdef ArbitraryKernel
     double (*kernel)(double);
     double kernel_width;
@@ -98,6 +101,7 @@ typedef struct particle {
     double fy;
     double move_x;
     double move_y;
+    double speed;
 #ifdef HASHING
     int bi;
     int bj;
@@ -172,6 +176,9 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "v_max ");
     number_of_input_parameters++;
 
+    strcat(*command_line_output, "r_max_qsap ");
+    number_of_input_parameters++;
+
 #elif defined QSAP_EXP
     strcat(*command_line_output, "rho_m ");
     number_of_input_parameters++;
@@ -185,15 +192,21 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     strcat(*command_line_output, "phi ");
     number_of_input_parameters++;
 
-#elif defined PFAP
+    strcat(*command_line_output, "r_max_qsap ");
+    number_of_input_parameters++;
+#endif
+
+#ifdef PFAP
+    #if !defined QSAP
     strcat(*command_line_output, "v ");
     number_of_input_parameters++;
+    #endif
 
     strcat(*command_line_output, "epsilon ");
     number_of_input_parameters++;
 
-    // strcat(*command_line_output, "mu ");
-    // number_of_input_parameters++;
+    strcat(*command_line_output, "r_max_pfap ");
+    number_of_input_parameters++;
 
 #elif defined NONE
     strcat(*command_line_output, "v ");
@@ -202,9 +215,6 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 #endif
 
     strcat(*command_line_output, "Dr ");
-    number_of_input_parameters++;
-
-    strcat(*command_line_output, "r_max ");
     number_of_input_parameters++;
 
     strcat(*command_line_output, "final_time ");
@@ -278,20 +288,27 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].rho_m = strtod(argv[i], NULL); i++;
     parameters[0].v_min = strtod(argv[i], NULL); i++;
     parameters[0].v_max = strtod(argv[i], NULL); i++;
+    parameters[0].interaction_range_qsap = strtod(argv[i], NULL); i++;
 #elif defined QSAP_EXP
     parameters[0].rho_m = strtod(argv[i], NULL); i++;
     parameters[0].v = strtod(argv[i], NULL); i++;
     parameters[0].lambda = strtod(argv[i], NULL); i++;
     parameters[0].phi = strtod(argv[i], NULL); i++;
-#elif defined PFAP
+    parameters[0].interaction_range_qsap = strtod(argv[i], NULL); i++;
+#endif
+#ifdef PFAP
+    #if !defined QSAP
     parameters[0].v = strtod(argv[i], NULL); i++;
+    #endif
     parameters[0].epsilon = strtod(argv[i], NULL); i++;
-    // parameters[0].mu = strtod(argv[i], NULL); i++;
+    parameters[0].interaction_range_pfap = strtod(argv[i], NULL); i++;
+    #if !defined QSAP
+    parameters[0].interaction_range_qsap = parameters[0].interaction_range_pfap; 
+    #endif
 #elif defined NONE
     parameters[0].v = strtod(argv[i], NULL); i++;
 #endif
     input_parameters[0].Dr = strtod(argv[i], NULL); i++;
-    parameters[0].interaction_range = strtod(argv[i], NULL); i++;
     parameters[0].final_time = strtod(argv[i], NULL); i++;
 
 #ifdef ArbitraryKernel
@@ -329,7 +346,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     parameters[0].N = N_left + N_right;
     #endif
 
-    char filename[1020]; // string of the filenames
+    char filename[2050]; // string of the filenames
 
     // Assign the files
     sprintf(filename, "%s_param",input_parameters.name); // print name into filename
@@ -337,8 +354,12 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     freopen(filename, "a", stderr);
 
     if (strcmp(input_parameters.resume,"yes") == 0) {
-        sprintf(filename, "%s_video/last_state",input_parameters.name);
+        sprintf(filename, "%s_video/%s_last_state",input_parameters.name, input_parameters.name);
         parameters[0].input_file = fopen(filename, "r");
+        if (parameters[0].input_file == NULL) {
+            fprintf(stderr, "Input file not found.\n");
+            ERROR(4);
+        }
 
         sprintf(filename, "%s_data",input_parameters.name);
         parameters[0].data_file = fopen(filename, "a");
@@ -361,9 +382,8 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     }
 
 #ifdef HASHING
-    parameters[0].box_size = parameters[0].interaction_range;
-
-    parameters[0].NxBox = (int) parameters[0].Lx / parameters[0].box_size;
+    parameters[0].box_size = parameters[0].interaction_range_qsap; // qsap radius always defined, always >= pfap radius
+    parameters[0].NxBox = (int) parameters[0].Lx / parameters[0].box_size; // number of spatial hashing boxes
     parameters[0].NyBox = (int) parameters[0].Ly / parameters[0].box_size;
 
     // Check that Lx, Ly is a multiple of box_size
@@ -391,7 +411,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
 
     int number_of_boxes_x = (int) parameters[0].NxBox / parameters[0].density_box_size;
     int number_of_boxes_y = (int) parameters[0].NyBox / parameters[0].density_box_size;
-    parameters[0].number_of_boxes_x = number_of_boxes_x;
+    parameters[0].number_of_boxes_x = number_of_boxes_x; // number of density boxes
     parameters[0].number_of_boxes_y = number_of_boxes_y;
     if ((abs(parameters[0].NxBox - number_of_boxes_x*parameters[0].density_box_size) > EPS) || 
         (abs(parameters[0].NyBox - number_of_boxes_y*parameters[0].density_box_size) > EPS)) {
@@ -400,12 +420,18 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     }
 
     parameters[0].density_box_area = parameters[0].density_box_size*parameters[0].density_box_size * \
-                                     parameters[0].interaction_range*parameters[0].interaction_range;
+                                     parameters[0].box_size*parameters[0].box_size;
     #ifdef PFAP
     // Almost total exclusion, so max density when close packing (and prolly achieved regardless of starting rho).  
-    parameters[0].max_number = ceil(DENSITY_MAX*parameters[0].density_box_size*parameters[0].density_box_size);
+    if (parameters[0].interaction_range_pfap < EPS)
+        parameters[0].max_number = parameters[0].rho_m * parameters[0].density_box_area * 10;
+    else {
+        // PFAP+QSAP
+        double density_max = DENSITY_MAX / (parameters[0].interaction_range_pfap*parameters[0].interaction_range_pfap);
+        parameters[0].max_number = ceil(density_max*parameters[0].density_box_area);
+    }
     #else
-    parameters[0].max_number = parameters[0].N / (number_of_boxes_x*number_of_boxes_y) * 4;
+    parameters[0].max_number = parameters[0].rho_m * parameters[0].density_box_area * 10;
     #endif
 
     density_histogram[0] = malloc((parameters[0].max_number+1) * sizeof(double));
@@ -460,7 +486,7 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
 
     double rho = parameters.N/parameters.Lx/parameters.Ly;
     #ifdef PFAP
-    double pe = parameters.v/input_parameters.Dr/(parameters.interaction_range*0.89);
+    double pe = parameters.v/input_parameters.Dr/(parameters.interaction_range_pfap*0.89);
     fprintf(parameters.param_file, "Density = %lf; Pe = %lf \n", rho, pe);
     #elif defined QSAP_TANH
     double v_ratio = parameters.v_max/parameters.v_min;
@@ -537,7 +563,7 @@ double BruteForceDensity(double x, double y, particle* particles, param paramete
     */
     int j;
     double dx, dy;
-    double rmax_squared = parameters.interaction_range*parameters.interaction_range;
+    double rmax_squared = parameters.interaction_range_qsap*parameters.interaction_range_qsap;
     double rho = 0;
     for (j=0;j<parameters.N;j++){
         dx = Min(3, fabs(x-particles[j].x),
@@ -559,7 +585,7 @@ void BruteForceForce(double* fx, double* fy, long i, particle* particles, param 
     */
     int j;
     double dx, dy, dr;
-    double rmax = parameters.interaction_range;
+    double rmax = parameters.interaction_range_pfap;
     double epsilon = parameters.epsilon;
     double force_magnitude;
     double x = particles[i].x;
@@ -731,16 +757,23 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
     int bi, bj, nbi, nbj;
     long i, j, k;
     double epsx=0, epsy=0;
-    double rmax_squared = parameters.interaction_range*parameters.interaction_range;
+    double rmax_squared = parameters.interaction_range_qsap*parameters.interaction_range_qsap;
     double Z = NORMALIZATION_EXP * rmax_squared;
+    #ifdef PFAP
+    double rmax_pfap = parameters.interaction_range_pfap;
+    double epsilon = parameters.epsilon;
+    double force_magnitude;
+    #endif
     double self_density = 1/Z/M_E;
     int NxBox = parameters.NxBox;
     int NyBox = parameters.NyBox;
-    double xi, yi, xj, yj, dx, dy;
+    double xi, yi, xj, yj, dx, dy, dr;
     double density_ij;
     // Initialize density fieds to zero for all particles
     for (i=0; i<parameters.N; i++) {
-        particles[i].rho = self_density;
+        particles[i].rho = self_density; // include the self density
+        particles[i].fx = 0;
+        particles[i].fy = 0;
     }
     // Loop through all boxes
     for (bi = 0; bi<NxBox; bi++) {
@@ -751,7 +784,8 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
                 xi = particles[i].x;
                 yi = particles[i].y;
 
-                j = neighbors[2*i+1]; // consider pairs (i,j) with j including and after i
+                // particles in same box
+                j = neighbors[2*i+1]; // consider pairs (i,j) with j after i
                 while (j != -1) {
                     xj = particles[j].x;
                     yj = particles[j].y;
@@ -760,11 +794,19 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
                     density_ij = Kernel(dx, dy, rmax_squared);
                     particles[i].rho += density_ij;
                     particles[j].rho += density_ij;
+                    #ifdef PFAP
+                    dr = sqrt(dx*dx + dy*dy);
+                    force_magnitude = Force(dr, rmax_pfap, epsilon);
+                    particles[i].fx += force_magnitude * dx/dr;
+                    particles[i].fy += force_magnitude * dy/dr;
+                    particles[j].fx -= force_magnitude * dx/dr;
+                    particles[j].fy -= force_magnitude * dy/dr;
+                    #endif
                     // go to next particle
                     j = neighbors[2*j+1];
                 }
 
-                // Particle in neighboring boxes
+                // particles in neighboring boxes
                 for (k=1; k<5; k++) {
                     nbi = neighboring_boxes[bi][bj][k].i;
                     nbj = neighboring_boxes[bi][bj][k].j;
@@ -783,6 +825,14 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
                         density_ij = Kernel(dx, dy, rmax_squared);
                         particles[i].rho += density_ij;
                         particles[j].rho += density_ij;
+                        #ifdef PFAP
+                        dr = sqrt(dx*dx + dy*dy);
+                        force_magnitude = Force(dr, rmax_pfap, epsilon);
+                        particles[i].fx += force_magnitude * dx/dr;
+                        particles[i].fy += force_magnitude * dy/dr;
+                        particles[j].fx -= force_magnitude * dx/dr;
+                        particles[j].fy -= force_magnitude * dy/dr;
+                        #endif
                         // go to next particle
                         j = neighbors[2*j+1];
                     }
@@ -798,87 +848,90 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
     #elif defined(QSAP_EXP)
     for (i=0;i<parameters.N;i++) {
         particles[i].v = DensityDependentSpeed2(particles[i].rho, parameters.rho_m, parameters.v, parameters.lambda, parameters.phi);
+        particles[i].move_x = particles[i].v*cos(particles[i].theta) + particles[i].fx;
+        particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;
+        particles[i].speed = particles[i].move_x * cos(particles[i].theta) + particles[i].move_y * sin(particles[i].theta);
     }
     #endif
 }
 
-#ifdef PFAP
-void MeasureForce(long* neighbors, particle* particles, long** boxes, param parameters, box*** neighboring_boxes) {
-    /*
-    Measure the force each particle experiences.
-    */
-    int bi, bj, nbi, nbj;
-    long i, j, k;
-    double epsx=0, epsy=0;
-    double rmax = parameters.interaction_range;
-    double epsilon = parameters.epsilon;
-    int NxBox = parameters.NxBox;
-    int NyBox = parameters.NyBox;
-    double xi, yi, xj, yj, dx, dy, dr;
-    double force_magnitude;
-    // Initialize density fieds to zero for all particles
-    for (i=0; i<parameters.N; i++) {
-        particles[i].fx = 0;
-        particles[i].fy = 0;
-    }
-    // Loop through all boxes
-    for (bi = 0; bi<NxBox; bi++) {
-        for (bj = 0; bj<NyBox; bj++) {
-            // First particle of box
-            i = boxes[bi][bj];
-            while (i!=-1) {
-                xi = particles[i].x;
-                yi = particles[i].y;
+// #ifdef PFAP
+// void MeasureForce(long* neighbors, particle* particles, long** boxes, param parameters, box*** neighboring_boxes) {
+//     /*
+//     Measure the force each particle experiences.
+//     */
+//     int bi, bj, nbi, nbj;
+//     long i, j, k;
+//     double epsx=0, epsy=0;
+//     double rmax = parameters.interaction_range_pfap;
+//     double epsilon = parameters.epsilon;
+//     int NxBox = parameters.NxBox;
+//     int NyBox = parameters.NyBox;
+//     double xi, yi, xj, yj, dx, dy, dr;
+//     double force_magnitude;
+//     // Initialize density fieds to zero for all particles
+//     for (i=0; i<parameters.N; i++) {
+//         particles[i].fx = 0;
+//         particles[i].fy = 0;
+//     }
+//     // Loop through all boxes
+//     for (bi = 0; bi<NxBox; bi++) {
+//         for (bj = 0; bj<NyBox; bj++) {
+//             // First particle of box
+//             i = boxes[bi][bj];
+//             while (i!=-1) {
+//                 xi = particles[i].x;
+//                 yi = particles[i].y;
 
-                j = neighbors[2*i+1]; // consider pairs (i,j) with j after i
-                while (j != -1) {
-                    xj = particles[j].x;
-                    yj = particles[j].y;
-                    dx = xi - xj;
-                    dy = yi - yj;
-                    dr = sqrt(dx*dx + dy*dy);
-                    force_magnitude = Force(dr, rmax, epsilon);
-                    particles[i].fx += force_magnitude * dx/dr;
-                    particles[i].fy += force_magnitude * dy/dr;
-                    particles[j].fx -= force_magnitude * dx/dr;
-                    particles[j].fy -= force_magnitude * dy/dr;
-                    // go to next particle
-                    j = neighbors[2*j+1];
-                }
+//                 j = neighbors[2*i+1]; // consider pairs (i,j) with j after i
+//                 while (j != -1) {
+//                     xj = particles[j].x;
+//                     yj = particles[j].y;
+//                     dx = xi - xj;
+//                     dy = yi - yj;
+//                     dr = sqrt(dx*dx + dy*dy);
+//                     force_magnitude = Force(dr, rmax, epsilon);
+//                     particles[i].fx += force_magnitude * dx/dr;
+//                     particles[i].fy += force_magnitude * dy/dr;
+//                     particles[j].fx -= force_magnitude * dx/dr;
+//                     particles[j].fy -= force_magnitude * dy/dr;
+//                     // go to next particle
+//                     j = neighbors[2*j+1];
+//                 }
 
-                // Particle in neighboring boxes
-                for (k=1; k<5; k++) {
-                    nbi = neighboring_boxes[bi][bj][k].i;
-                    nbj = neighboring_boxes[bi][bj][k].j;
-                    #ifdef PBC
-                    epsx = neighboring_boxes[bi][bj][k].epsilon_x;
-                    epsy = neighboring_boxes[bi][bj][k].epsilon_y;
-                    #endif
+//                 // Particle in neighboring boxes
+//                 for (k=1; k<5; k++) {
+//                     nbi = neighboring_boxes[bi][bj][k].i;
+//                     nbj = neighboring_boxes[bi][bj][k].j;
+//                     #ifdef PBC
+//                     epsx = neighboring_boxes[bi][bj][k].epsilon_x;
+//                     epsy = neighboring_boxes[bi][bj][k].epsilon_y;
+//                     #endif
                     
-                    j = boxes[nbi][nbj];
-                    // Look through all particles in box nbi, nbj and compute their contributions to rho
-                    while (j != -1) {
-                        xj = particles[j].x;
-                        yj = particles[j].y;
-                        dx = xi - (xj + epsx);
-                        dy = yi - (yj + epsy);
-                        dr = sqrt(dx*dx + dy*dy);
-                        force_magnitude = Force(dr, rmax, epsilon);
-                        particles[i].fx += force_magnitude * dx/dr;
-                        particles[i].fy += force_magnitude * dy/dr;
-                        particles[j].fx -= force_magnitude * dx/dr;
-                        particles[j].fy -= force_magnitude * dy/dr;
-                        // go to next particle
-                        j = neighbors[2*j+1];
-                    }
-                }
-                i = neighbors[2*i+1];
-            }
-        }
-    }
+//                     j = boxes[nbi][nbj];
+//                     // Look through all particles in box nbi, nbj and compute their contributions to rho
+//                     while (j != -1) {
+//                         xj = particles[j].x;
+//                         yj = particles[j].y;
+//                         dx = xi - (xj + epsx);
+//                         dy = yi - (yj + epsy);
+//                         dr = sqrt(dx*dx + dy*dy);
+//                         force_magnitude = Force(dr, rmax, epsilon);
+//                         particles[i].fx += force_magnitude * dx/dr;
+//                         particles[i].fy += force_magnitude * dy/dr;
+//                         particles[j].fx -= force_magnitude * dx/dr;
+//                         particles[j].fy -= force_magnitude * dy/dr;
+//                         // go to next particle
+//                         j = neighbors[2*j+1];
+//                     }
+//                 }
+//                 i = neighbors[2*i+1];
+//             }
+//         }
+//     }
     
-}
-#endif
+// }
+// #endif
 #endif
 
 double Distance2(long i, long j, particle* particles, param parameters) {
@@ -904,7 +957,8 @@ void GivenInitialConditions(FILE* input, particle* particles, param parameters, 
                         #endif
                         ){
     /*
-    Read initial conditions from input file.
+    Read initial conditions from input file. 
+    Other parameters of this simul are the same as the params that generate the input file.
     */
     long i;
     double x,y,theta;
@@ -942,9 +996,9 @@ void GivenInitialConditions(FILE* input, particle* particles, param parameters, 
 
     #ifdef HASHING
     MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #if defined PFAP
-        MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #endif
+    // #if defined PFAP
+    //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #endif
     #endif
 
 }
@@ -972,8 +1026,8 @@ void RandomInitialConditions(particle* particles, param parameters
     int N = parameters.N;
     for (i=0; i<N; i++){
         #ifdef PFAP
-        mindist2 = 0;
-        while (mindist2 < 0.9*parameters.interaction_range) {
+        mindist2 = -1;
+        while (mindist2 < 0.9*parameters.interaction_range_pfap) {
             mindist2 = Lx*Ly;
             particles[i].x = Lx*(genrand64_real3()); // From 0 to Lx
             particles[i].y = Ly*(genrand64_real3()); // From 0 to Ly
@@ -993,19 +1047,122 @@ void RandomInitialConditions(particle* particles, param parameters
         #if defined NONE || defined PFAP
         particles[i].v = parameters.v;
         #endif
+        // if (i%100 == 0)
+        // fprintf(stderr, "Done initializing particle!\n");
         #ifdef HASHING
         // Store the box and neighbor information of particles
         GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
         AddInBox(i, bi, bj, boxes, neighbors, particles);
         #endif
     }
+    fprintf(stderr, "Done initializing boxes, start initializing densities!\n");
+    #ifdef HASHING
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #if defined PFAP
+    //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #endif
+    #endif                        
+}
+
+void LatticeInitialConditions(particle* particles, param parameters
+                        #ifdef HASHING
+                        , long*** boxes, long** neighbors, box*** neighboring_boxes
+                        #endif
+                        ){
+    /*
+    Create a triangular lattice with minimum distance and randomly place particles.
+    */
+    double Lx = parameters.Lx;
+    double Ly = parameters.Ly;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
+
+    double a = 1.0 * parameters.interaction_range_pfap; //horizontal lattice spacing
+    if (a < EPS) a = 0.1 * parameters.interaction_range_qsap;
+    double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
+    long N = parameters.N;
+    int Nx = floor(Lx / a ); //Number of sites in x direction in liquid phase
+    int Ny = Ny  = floor(Ly / h );  //Number of sites in y direction
+    long Nsites = Nx*Ny; //Total number of available sites in the gas phase
+    int* lattice; //Lattice of gas phase
+    long nb; //Number of particles placed so far
+    long i,j,k;
+    int bool;
+
+    //We create the corresponding lattices, which are currently empty
+    lattice = calloc(Nsites,sizeof(int));
+    if (lattice==NULL) {
+        fprintf(stderr, "Memory allocation for lattice failed.\n");
+        ERROR(3);
+    }
+
+    //if there are enough spaces for the N particles
+    if(N<=Nsites){
+        for(i=0;i<N;i++){
+            bool=1;
+            // We pull a site at random and place the particle there if the
+            // site is not occupied
+            while(bool==1){
+                k=genrand64_int64()%Nsites;
+                if(lattice[k]==0){
+                    lattice[k]=1;
+                    bool=0;
+                }
+            }
+        }
+    }
+    else {
+        fprintf(stderr, "Not enough sites: %ld > %ld\n", N, Nsites);
+        ERROR(4);
+    }
+
+    // We now place particles in particles, given the arrays
+    //nb is the label of the particle to be placed. 
+    nb=0;
+    //We start with the particles in NsitesLiq. We go through all the
+    //sites of the lattice LiquidPhase.
+    for(i=0;i<Nsites;i++){
+        //If it is occupied, place the particle.
+        if(lattice[i]==1){
+            // printf("nb = %ld N = %ld\n", nb, parameters.N);
+            //we know that i = k + Nx * j
+            k = i % Nx;
+            j = (i-k) / Nx;
+            //Compute the corresponding x. Depending on whether the line is
+            //even or odd, there is an a/2 offset
+            particles[nb].x = k*a + a * .5 * (j%2) ;
+            particles[nb].y = j*h;
+            particles[nb].theta = 2*M_PI*genrand64_real2();
+            particles[nb].fx = 0;
+            particles[nb].fy = 0;
+            #if defined NONE || defined PFAP
+            particles[nb].v = parameters.v;
+            #endif
+
+            //Add particle in the good box.
+            GetBox(&bi, &bj, particles[nb].x, particles[nb].y, Lx, Ly, box_size);
+            AddInBox(nb, bi, bj, boxes, neighbors, particles);
+
+            nb++;
+        }
+    }
+
+    if(nb!=parameters.N) {
+        fprintf(stderr, "Wrong number of particles placed\n");
+        ERROR(4);
+    }
+    free(lattice);
+    fflush(stderr);
 
     #ifdef HASHING
     MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #if defined PFAP
-        MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #if defined PFAP
+    //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #endif
     #endif
-    #endif                        
+
 }
 
 #ifdef INIT_SLAB
@@ -1077,7 +1234,7 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
                         #endif
                         ){
     /*
-    Create two square lattices of particles in two slabs with different densities.
+    Create two triangular lattices of particles in two slabs with different densities.
     */
 
     double Lx = parameters.Lx;
@@ -1088,7 +1245,7 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     int bi, bj;
     #endif
 
-    double a = 0.9 * parameters.interaction_range; //horizontal lattice spacing
+    double a = 0.9 * parameters.interaction_range_pfap; //horizontal lattice spacing
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
     long Ngas = (long) (parameters.rho_small * Lx * Ly * (1-liquid_fraction));
     long Nliquid = (long) (parameters.rho_large * Lx * Ly * liquid_fraction);
@@ -1221,13 +1378,13 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     free(LiquidPhase);
 
     fflush(parameters.param_file);
-
+    fflush(stderr);
 
     #ifdef HASHING
     MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #if defined PFAP
-        MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #endif
+    // #if defined PFAP
+    //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #endif
     #endif
 }
 #endif
@@ -1255,16 +1412,20 @@ void UpdateParticles(particle* particles, param parameters, double* step
         // printf("Fx %lf \n", particles[i].fx);
         // printf("Fy %lf \n", particles[i].fy);
         // printf("v %lf \n", particles[i].v);
-        particles[i].move_x = particles[i].v*cos(particles[i].theta) + particles[i].fx;
-        particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;    
+        // printf("rho %lf \n", particles[i].rho);    
         if (fabs(particles[i].move_x) > fmax) fmax = fabs(particles[i].move_x);
         if (fabs(particles[i].move_y) > fmax) fmax = fabs(particles[i].move_y);
     }
-    double ratio = parameters.interaction_range / (5*fmax*parameters.dt);
-    step[0] = (ratio > 1) ? parameters.dt : ratio * parameters.dt; 
+    // printf("fmax %lf \n", fmax);
+    #ifdef PFAP
+    double ratio = parameters.interaction_range_pfap / (5*fmax*parameters.dt); // pfap radius always smaller than qsap
+    #else // if only QSAP defined
+    double ratio = parameters.interaction_range_qsap / (5*fmax*parameters.dt);
+    #endif
+    step[0] = (ratio > 1 || ratio < EPS) ? parameters.dt : ratio * parameters.dt; 
+    // printf("t %lf \n", t);
     // Update all the quantities dt dependent that you use in the update
     noiseamp = parameters.noiseamp * sqrt(step[0]/parameters.dt); 
-    // printf("Step %lf\n", step[0]);
 
     for (i=0;i<parameters.N;i++){
         #if defined(QSAP) && !defined(HASHING)
@@ -1304,9 +1465,9 @@ void UpdateParticles(particle* particles, param parameters, double* step
     }
 #ifdef HASHING
     MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #if defined PFAP
-        MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
-    #endif
+    // #if defined PFAP
+    //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    // #endif
 #endif
 
     #ifdef TESTING_DENSITY
@@ -1412,8 +1573,8 @@ void StorePositions(double t, param parameters, particle* particles
     fprintf(parameters.data_file, "%lf\n", t);
 
     for (i=0;i<parameters.N;i++){
-        fprintf(parameters.data_file,"%lg \t %lg \t %lg \t %lg \n",
-                particles[i].x,particles[i].y,particles[i].theta,particles[i].rho);
+        fprintf(parameters.data_file,"%lg \t %lg \t %lg \t %lg \t %lg \n",
+                particles[i].x,particles[i].y,particles[i].theta,particles[i].rho,particles[i].speed);
     }
     fprintf(parameters.data_file, "\n");
     fflush(parameters.data_file);

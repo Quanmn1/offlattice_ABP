@@ -1,37 +1,42 @@
 #!/bin/bash
 
-name_exe=abp_qsaps2_slab
+name_exe=abp_qsaps2
 # gcc ABP.c -o $name_exe -lm
 
-name_all="qsaps_test8"
+name_all="qsaps_test10"
 dt=0.05
-# N=80000
-liquid_fraction=0.5
-Lx=100
-Ly=50
-lambda=$1
-rho_large=$(echo "scale=1; 52 + 50 * $lambda"  | bc)
-rho_small=$(echo "scale=1; 46 - 30 * $lambda"  | bc)
-rho_m=50
-# v_min=5
-# v_max=$1
+N=40000
+# liquid_fraction=0.5
+Lx=40
+Ly=40
+lambda=1
+# rho_large=$(echo "scale=1; 52 + 50 * $lambda"  | bc)
+# rho_small=$(echo "scale=1; 46 - 30 * $lambda"  | bc)
+# echo "rho_large = $rho_large"
+# echo "rho_small = $rho_small"
+rho_m=25
 v=5
-phi=20
-Dr=1
+phi=10
 rmax=1
+Dr=$1
 final_time=5000
-density_box_size=5
+density_box_size=4
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=20
-data_store=20
+timestep=50
+data_store=$timestep
 update_histo=1
-histo_store=20
+histo_store=$timestep
 start_time=0
 resume="no"
 
-name="$name_all"_"$lambda"
-./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $Dr $rmax $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 10
+name="$name_all"_"$Dr"
+{
+    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+# ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax $Dr $final_time \
+#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 10
+} \
+2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -121,7 +126,7 @@ ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:c
 
 # Delete every file except the last one, for continuing simulation
 last_file=$(printf "%s/data%0${pad}d" "$dir" "$last")
-new_file="$dir"/last_state
+new_file="$dir"/last_state_"$lambda"
 mv "$last_file" "$new_file"
 rm "$dir"/data*
 
