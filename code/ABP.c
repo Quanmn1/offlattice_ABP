@@ -85,7 +85,6 @@ TRY {
         );
         #endif
     #else
-        fprintf(parameters.param_file, "Initializing!\n");
         #ifdef PFAP
         LatticeInitialConditions(particles, parameters
         #ifdef HASHING
@@ -102,19 +101,21 @@ TRY {
     #endif
     }
     else {
-        GivenInitialConditions(parameters.input_file, particles, parameters, &t
+        GivenInitialConditions(parameters.input_file, particles, &parameters, &t
         #ifdef HASHING
         , &boxes, &neighbors, neighboring_boxes
         #endif
-        );
+        ); // already closed input_file here
     }
-    
-    StorePositions(t, parameters, particles
-    #ifdef HASHING
-    , &boxes, &neighbors
-    #endif
-    );
-    parameters.next_store_time += parameters.store_time_interval;
+
+    if (t + EPS > parameters.next_store_time) {
+        StorePositions(t, parameters, particles
+        #ifdef HASHING
+        , &boxes, &neighbors
+        #endif
+        );
+        parameters.next_store_time += parameters.store_time_interval;
+    }
 
     double step = parameters.dt;
     double histogram_count = 0;
@@ -215,7 +216,6 @@ CATCH
     free(density_histogram);
     fclose(parameters.density_file);
     #endif
-    if (parameters.input_file != NULL) fclose(parameters.input_file);
     printf("Cleanup done!\n");
 #endif
 }

@@ -1,39 +1,37 @@
 #!/bin/bash
 
-name_all="pfaps_test11_diagram"
-dt=0.05
-# N=36000
-liquid_fraction=0.5
-Lx=400
-Ly=200
+name_all="pfaps_qsaps_test4"
+dt=0.01
+N=17500
+Lx=30
+Ly=30
+rho_m=25
 v=0.5
+lambda=1
+phi=10
+rmax_qsap=1
 epsilon=0.125
-Dr=$1
-# v_min=5
-# v_max=$1
-# rho_m=10
-# rho_large=$(echo "scale=1; (($v_max/$v_min-2)/10*1.5+1.5)*$rho_m"  | bc)
-# rho_small=$(echo "scale=1; (1-($v_max/$v_min-2)/10)*$rho_m"  | bc)
-rho_large=$(echo "scale=2; 1.21 - 2.5 * $Dr"  | bc)
-rho_small=$(echo "scale=2; 15.5 * $Dr - 0.2"  | bc)
-echo "rho_large = $rho_large"
-echo "rho_small = $rho_small"
-epsilon=1
-final_time=5000
-density_box_size=5
-rmax=1
+rmax_pfap=$1
+Dr=0.1
+final_time=1000
+density_box_size=2
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=20
-data_store=20
-update_histo=1
-histo_store=20
-start_time=1000
+timestep=50
+data_store=$timestep
+update_histo=5
+histo_store=$timestep
+start_time=0
+resume="no"
 
-name="$name_all"_"$Dr"
+name="$name_all"_"$rmax_pfap"
 
 # name="pfaps_test_16"
 file="$name"_data
 dir="$name"_video
+
+if [ ! -d "$dir" ]; then
+    mkdir "$dir"
+fi
 
 # Number of times
 M=$(awk 'NF==1 {m++} END{print m}' $file)
@@ -58,7 +56,7 @@ rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
 
 last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
 NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file}}
-NF>2 {iread=1;print $1,$2,$3,$4  >> file}
+NF>2 {iread=1;print $1,$2,$3,$4,$5  >> file}
 END {printf("%d", i)}
 ' "$file")
 

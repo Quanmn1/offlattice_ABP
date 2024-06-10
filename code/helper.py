@@ -71,3 +71,6 @@ def nonzero(first, *arrs):
 
 def bump(x, height, slope, mean, width):
     return np.where(np.abs(x-mean) < width/2, height * np.exp(slope * (1 - 1/(1 - 4/width**2 * (x-mean)**2)) ), 0)
+
+def linear(x, a, b):
+    return a*x + b

@@ -4,38 +4,41 @@ name_exe="abp_pfaps_qsaps"
 
 # gcc ABP.c -o $name_exe -lm
 
-name_all="pfaps_qsaps_test4"
-dt=0.01
-N=17500
+name_all="pfaps_qsaps_test8_veffpfqs"
+dt=0.002
 Lx=30
 Ly=30
 rho_m=25
 v=0.5
-lambda=1
+lambda=0.05
 phi=10
 rmax_qsap=1
 epsilon=0.125
-rmax_pfap=$1
+rmax_pfap=0.08
+rho0=$1
+N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
+# rho_rf2=0.4
+# N=$(echo "scale=0; $rho_rf2 / $rmax_pfap / $rmax_pfap * $Ly * $Lx"  | bc)
 Dr=0.1
-final_time=1000
+final_time=500
 density_box_size=2
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=50
+timestep=20
 data_store=$timestep
 update_histo=5
 histo_store=$timestep
 start_time=0
 resume="no"
 
-name="$name_all"_"$rmax_pfap"
-{
-    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+name="$name_all"_"$rho0"
+# {
+#     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
 
-    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
-    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-} \
-2>> "$name"_param
+#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+# } \
+# 2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -51,10 +54,10 @@ fi
 M=$(awk 'NF==1 {m++} END{print m}' $file)
 pad=$(echo ${#M} | awk '{print $1+1}')
 
-#Calcul of max density
-# rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
+# Calcul of max density
+rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
 
-# echo "rho max is $rho"
+echo "rho max is $rho"
 
 # i is the marker of the file
 
@@ -70,9 +73,9 @@ pad=$(echo ${#M} | awk '{print $1+1}')
 # (iread==1) then you should increment i and open a new file, and
 # increment t up to the next time you want to record
 
-last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
-NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file}}
-NF>2 {iread=1;print $1,$2,$3,$4  >> file}
+last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
+NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
+NF>2 {iread=1;print $1,$2,$3,$4,$5  >> file_out}
 END {printf("%d", i)}
 ' "$file")
 
@@ -83,24 +86,25 @@ do
     echo "file $i $Time";
     gnuplot <<EOF
     set title 'Time $Time'
-    # set cbrange [0:$rho]
+    set cbrange [0:$rho]
 
     # set limits to x and y axes
     set xr[0:$Lx]
     set yr[0:$Ly]
     set size ratio $ratio
-    set terminal png size 2000,1000
+    set terminal png size 1600,1600
     set output "$i.png"
     unset key
-    size=$rmax_pfap
-    set style fill solid
+    size=$(echo "scale=3; $rmax_pfap / 2"  | bc)
+    # size=1
+    set style fill border
     set term png font ",25"
 
     # x:y:size:color
     # skip the first line which contains time
     # pt 7 gives you a filled circle and ps 10 is the size, lt -1 solid line
     # us 1:2 w p pt 7 ps .2 lt -1, "$i" 
-    pl "$i" skip 1 us 1:2:(size):4 w circles
+    pl "$i" skip 1 us 1:2:(size):4 w circles palette
     
     set output
 EOF

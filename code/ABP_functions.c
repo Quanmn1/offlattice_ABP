@@ -423,6 +423,7 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
                                      parameters[0].box_size*parameters[0].box_size;
     #ifdef PFAP
     // Almost total exclusion, so max density when close packing (and prolly achieved regardless of starting rho).  
+    #ifdef QSAP
     if (parameters[0].interaction_range_pfap < EPS)
         parameters[0].max_number = parameters[0].rho_m * parameters[0].density_box_area * 10;
     else {
@@ -430,6 +431,10 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
         double density_max = DENSITY_MAX / (parameters[0].interaction_range_pfap*parameters[0].interaction_range_pfap);
         parameters[0].max_number = ceil(density_max*parameters[0].density_box_area);
     }
+    #else
+    double density_max = DENSITY_MAX / (parameters[0].interaction_range_pfap*parameters[0].interaction_range_pfap);
+    parameters[0].max_number = ceil(density_max*parameters[0].density_box_area);
+    #endif
     #else
     parameters[0].max_number = parameters[0].rho_m * parameters[0].density_box_area * 10;
     #endif
@@ -841,18 +846,16 @@ void MeasureDensity(long* neighbors, particle* particles, long** boxes, param pa
             }
         }
     }
-    #ifdef QSAP_TANH
     for (i=0;i<parameters.N;i++) {
+        #ifdef QSAP_TANH
         particles[i].v = DensityDependentSpeed(particles[i].rho, parameters.rho_m, parameters.v_min, parameters.v_max);
-    }
-    #elif defined(QSAP_EXP)
-    for (i=0;i<parameters.N;i++) {
+        #elif defined(QSAP_EXP)
         particles[i].v = DensityDependentSpeed2(particles[i].rho, parameters.rho_m, parameters.v, parameters.lambda, parameters.phi);
+        #endif
         particles[i].move_x = particles[i].v*cos(particles[i].theta) + particles[i].fx;
         particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;
         particles[i].speed = particles[i].move_x * cos(particles[i].theta) + particles[i].move_y * sin(particles[i].theta);
     }
-    #endif
 }
 
 // #ifdef PFAP
@@ -951,7 +954,7 @@ double Distance2(long i, long j, particle* particles, param parameters) {
 }
 
 
-void GivenInitialConditions(FILE* input, particle* particles, param parameters, double *t
+void GivenInitialConditions(FILE* input, particle* particles, param* parameters, double *t
                         #ifdef HASHING
                         , long*** boxes, long** neighbors, box*** neighboring_boxes
                         #endif
@@ -962,24 +965,40 @@ void GivenInitialConditions(FILE* input, particle* particles, param parameters, 
     */
     long i;
     double x,y,theta;
-    double Lx = parameters.Lx;
-    double Ly = parameters.Ly;
+    double Lx = parameters[0].Lx;
+    double Ly = parameters[0].Ly;
     #ifdef HASHING
-    double box_size = parameters.box_size;
+    double box_size = parameters[0].box_size;
     int bi, bj;
     #endif
 
     fscanf(input,"%lg\n",t);
+    parameters[0].next_store_time = floor(t[0]) + parameters[0].store_time_interval;
+    parameters[0].next_histogram_update = floor(t[0]) + parameters[0].histogram_update_interval;
+    parameters[0].next_histogram_store = floor(t[0]) + parameters[0].histogram_store_interval;
 
-    for(i=0;i<parameters.N;i++){
+    for(i=0;i<parameters[0].N;i++){
         if(fscanf(input,"%lg \t %lg \t %lg \t %*g\n",&x,&y,&theta)!=EOF) {
+            // fprintf(stderr, "particle %ld at %lg \t %lg\n", i, x, y);
+            // fflush(stderr);
+
             particles[i].x=x;
             particles[i].y=y;
-            particles[i].theta=theta;            
+            particles[i].theta=theta;
+
+            if (particles[i].theta>=2*M_PI) particles[i].theta -= 2*M_PI;
+            if (particles[i].theta<0) particles[i].theta += 2*M_PI;
+
+            if (particles[i].x>=Lx) particles[i].x -= Lx;
+            if (particles[i].x<0) particles[i].x += Lx;
+
+            if (particles[i].y>=Ly) particles[i].y -= Ly;
+            if (particles[i].y<0) particles[i].y += Ly;
+            
             particles[i].fx = 0;
             particles[i].fy = 0;
             #if defined NONE || defined PFAP
-            particles[i].v = parameters.v;
+            particles[i].v = parameters[0].v;
             #endif
             #ifdef HASHING
             // Store the box and neighbor information of particles
@@ -992,10 +1011,10 @@ void GivenInitialConditions(FILE* input, particle* particles, param parameters, 
             ERROR(4);
         }
     }
-    fclose(parameters.input_file);
+    fclose(parameters[0].input_file);
 
     #ifdef HASHING
-    MeasureDensity(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
+    MeasureDensity(neighbors[0], particles, boxes[0], parameters[0], neighboring_boxes);
     // #if defined PFAP
     //     MeasureForce(neighbors[0], particles, boxes[0], parameters, neighboring_boxes);
     // #endif
@@ -1084,7 +1103,7 @@ void LatticeInitialConditions(particle* particles, param parameters
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
     long N = parameters.N;
     int Nx = floor(Lx / a ); //Number of sites in x direction in liquid phase
-    int Ny = Ny  = floor(Ly / h );  //Number of sites in y direction
+    int Ny = floor(Ly / h );  //Number of sites in y direction
     long Nsites = Nx*Ny; //Total number of available sites in the gas phase
     int* lattice; //Lattice of gas phase
     long nb; //Number of particles placed so far
@@ -1249,7 +1268,7 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
     long Ngas = (long) (parameters.rho_small * Lx * Ly * (1-liquid_fraction));
     long Nliquid = (long) (parameters.rho_large * Lx * Ly * liquid_fraction);
-    int NxL = ceil(Lx * liquid_fraction     / a ); //Number of sites in x direction in liquid phase
+    int NxL = floor(Lx * liquid_fraction     / a ); //Number of sites in x direction in liquid phase
     int NxG = floor(Lx * (1-liquid_fraction) / a ); //Number of sites in x direction in gas phase
     int Ny = Ny  = floor(Ly / h );  //Number of sites in y direction
     long NsitesGas = NxG*Ny; //Total number of available sites in the gas phase

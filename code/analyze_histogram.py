@@ -42,19 +42,19 @@ def process_histograms(histograms, num_combined, target_length):
     return histogram_mult, histogram_mult_std
 
 def analyze_histogram(test_name, mode, start, end, space, num_segments, fit='gauss'):
-    number = int((end-start)/space)+1
+    number = round((end-start)/space)+1
     if mode == "qsap":
         pad = 1
         param_label = "lambda"
         num_combined = 25 # number of densities binned together
     elif mode == "pfap":
         pad = 3
-        param_label = "Pe"
+        param_label = r"$l_p/r_f$"
         num_combined = 1
     elif mode == "pfqs":
         pad = 2
-        param_label = "r_f"
-        num_combined = 10
+        param_label = r"$l_p/r_f$"
+        num_combined = 4
     vars = np.linspace(start, end, number)
     rho_gases = np.zeros(number)
     rho_liquids = np.zeros(number)
@@ -62,7 +62,7 @@ def analyze_histogram(test_name, mode, start, end, space, num_segments, fit='gau
     rho_liquids_std = np.zeros(number)
 
     for (test_num, var) in enumerate(vars):
-        name = test_name + f'_{var:.{pad}f}'
+        name = test_name + '_' + f'{var:0.{pad}f}'
         param_file = name + '_param'
         histogram_file = name + '_histogram'
 
@@ -102,7 +102,7 @@ def analyze_histogram(test_name, mode, start, end, space, num_segments, fit='gau
 
         if mode == "pfap":
             v = params['v']
-            max_number = int(density_box_area * 2 / box_size_pfap**2)
+            max_number = int(density_box_area * 2 / box_size**2)
         elif mode == "qsap":
             max_number = int(N/(number_of_boxes_x*number_of_boxes_y) * 4)
         elif mode == "pfqs":
@@ -161,7 +161,7 @@ def analyze_histogram(test_name, mode, start, end, space, num_segments, fit='gau
                             ax.text(0.85,0.95, f'$\chi^2 / dof = {chisquare:.2f}/{dof}$', transform=ax.transAxes)
                             # put on a grid
                         elif fit == 'max':
-                            divider = np.searchsorted(densities_fit, params['rho'])
+                            divider = np.searchsorted(densities_fit, params['rho']*1.5)
                             rho_gases[test_num] = densities_fit[np.argmax(histogram_fit[:divider])]
                             rho_liquids[test_num] = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                             ax.set_title(f'$t={t:.2f}, peaks: \\rho_g = {rho_gases[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}$')
@@ -184,8 +184,12 @@ def analyze_histogram(test_name, mode, start, end, space, num_segments, fit='gau
     if mode == "pfap":
         Pes = v/vars*np.float_power(2, 1/6)
         vars = Pes
-    elif mode == "qsap" or mode == "pfqs":
+    elif mode == "qsap":
         pass
+    elif mode == "pfqs":
+        Pes = 5/vars
+        vars = Pes
+
 
     with open(test_name + '_histo_phase_diagram', 'w') as f:
         f.write(f"{param_label} \t rho_gas \t rho_liquid\n")

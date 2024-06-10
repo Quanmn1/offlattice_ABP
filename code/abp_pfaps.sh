@@ -1,18 +1,22 @@
 #!/bin/bash
 
-name_exe="abp_pfaps_slab_resumable"
+name_exe="abp_pfaps"
 
 # gcc ABP.c -o $name_exe -lm
 
-name_all="pfaps_test18_diagram"
+name_all="pfaps_test23_diagram"
 dt=0.05
-# N=36000
+N=90000
 Lx=500
 Ly=200
 v=0.5
 epsilon=0.125
-Pe=$1
-Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
+# Pe=$1
+# Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
+# rf=$1
+# Pe=$(echo "scale=4; 5 / $rf"  | bc)
+# Dr=$(echo "scale=4; $v / $Pe" | bc)
+Dr=$1
 # v_min=5
 # v_max=$1
 # rho_m=10
@@ -22,10 +26,11 @@ Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is t
 # rho_small=$(echo "scale=3; 11.2 * $Dr - 0.1"  | bc)
 # echo "rho_large = $rho_large"
 # echo "rho_small = $rho_small"
-rho_0=0.9
-rho_large=$3
-rho_small=$2
-liquid_fraction=$(echo "scale=3; ( $rho_0-$rho_small ) / ( $rho_large-$rho_small )" | bc)
+# rho_0=0.9
+# rho_large=$3
+# rho_small=$2
+# liquid_fraction=0.4
+# liquid_fraction=$(echo "scale=3; ( $rho_0-$rho_small ) / ( $rho_large-$rho_small )" | bc)
 epsilon=1
 final_time=10000
 density_box_size=4
@@ -39,11 +44,13 @@ start_time=0
 resume="no"
 
 name="$name_all"_"$Dr"
-{
-    time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-} \
-2>> "$name"_param
+# {
+#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+#     time ./$name_exe $dt $N $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+# } \
+# 2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -91,16 +98,16 @@ do
     echo "file $i $Time";
     gnuplot <<EOF
     set title 'Time $Time'
-    # set cbrange [0:$rho]
+    set cbrange [0.7:1.3]
 
     # set limits to x and y axes
     set xr[0:$Lx]
     set yr[0:$Ly]
     set size ratio $ratio
-    set terminal png size 2000,1000
+    set terminal png size 1600,1600
     set output "$i.png"
     unset key
-    size=$rmax
+    size=$(echo "scale=2; $rmax / 2"  | bc)
     set style fill solid
     set term png font ",25"
 
@@ -108,7 +115,7 @@ do
     # skip the first line which contains time
     # pt 7 gives you a filled circle and ps 10 is the size, lt -1 solid line
     # us 1:2 w p pt 7 ps .2 lt -1, "$i" 
-    pl "$i" skip 1 us 1:2:(size):4 w circles
+    pl "$i" skip 1 us 1:2:(size):4 w circles palette
     
     set output
 EOF
