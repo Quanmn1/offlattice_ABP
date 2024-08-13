@@ -94,7 +94,7 @@ do
     set terminal png size 1600,1600
     set output "$i.png"
     unset key
-    size=$rmax
+    size=$(echo "scale=1; $rmax / 10" | bc)
     set style fill solid
     set term png font ",25"
 

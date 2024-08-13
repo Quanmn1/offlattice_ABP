@@ -1,23 +1,23 @@
 #!/bin/bash
 
-name_exe="abp_pfaps_harmonic_qsaps_exp"
+name_exe="abp_pfaps_harmonic_qsaps_zero_linear"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all="pfaps_qsaps_test15_harmonic_scaleeps"
-dt=0.001
-Lx=20
-Ly=20
+name_all="pfqs_condensation_test3_scaleeps"
+dt=0.002
+Lx=40
+Ly=40
 # liquid_fraction=0.5
 rho_m=25
-N=18000
+N=16000
 rmax_pfap=$1
 v=5
 lambda=1
-phi=10
+phi=1
 rmax_qsap=1
 # epsilon=1
-# epsilon=0.
+# epsilon=50
 epsilon=$(echo "scale=1; 50 * $rmax_pfap"  | bc)
 # rho_small=20
 # rho_large=$(echo "scale=1; 0.6 / $rmax_pfap / $rmax_pfap"  | bc)
@@ -26,8 +26,8 @@ epsilon=$(echo "scale=1; 50 * $rmax_pfap"  | bc)
 # N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # rho_rf2=0.45
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
-Dr=1
-final_time=1000
+Dr=0.5
+final_time=500
 density_box_size=2
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=10
@@ -38,13 +38,13 @@ start_time=0
 resume="no"
 
 name="$name_all"_"$rmax_pfap"
-# {
-#     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-# } \
-# 2>> "$name"_param
+{
+    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+} \
+2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -98,6 +98,7 @@ do
     echo "file $i $Time";
     gnuplot <<EOF
     set title 'Time $Time'
+    # adjust so that see either the two phases
     set cbrange [0:$rho]
     set palette defined ( 0 "orange", 1 "dark-orange" )
 

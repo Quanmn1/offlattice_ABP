@@ -3,6 +3,17 @@
 #include <math.h>
 #include <stdarg.h>
 
+int CountSpaces(const char *line, const char space) {
+    int count = 0;
+    while (*line) {
+        if (*line == space) {
+            count++;
+        }
+        line++;
+    }
+    return count;
+}
+
 double RadialIntegrate(double (*func)(double), double low, double high, int num_intervals) {
     /*
     Perform integration of a radial function on a disk 
@@ -41,6 +52,17 @@ double KernelExp(double r){
     else
         return 0;
 }
+
+double SmoothZero(double rho, double rho_m, double phi) {
+    /*
+    Give a function that reaches zero at finite rho
+    */
+    if (rho < rho_m)
+        return exp(-phi/(rho_m-rho)/(rho_m-rho) );
+    else
+        return 0;
+}
+
 
 double KernelGauss(double r) {
     return exp(-r*r/2);

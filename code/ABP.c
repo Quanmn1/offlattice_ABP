@@ -26,6 +26,12 @@ int main(int argc, char* argv[]) {
     particle* particles; // pointer to start of array
     double* density_histogram; // store the accumulated density histogram in a time period
     double** density_matrix; // store the density at each position
+    double*** sigmaIK;
+    double** sigmaA;
+    double** nematic;
+    double t;
+    double pressure_left;
+    double pressure_right;
 
 #ifdef HASHING
     long** boxes; // first particle in box i, j. malloc in AssignValues
@@ -41,7 +47,7 @@ TRY {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &particles, &density_histogram, &density_matrix);
+    AssignValues(&parameters, input_parameters, &particles, &density_histogram, &density_matrix, &sigmaIK, &sigmaA, &nematic);
     /*
     Write the params into a file
     */
@@ -65,7 +71,7 @@ TRY {
 
 #endif
 
-    double t = 0;
+    t = 0;
     /*
     Generate initial positions and orientations of particles
     */
@@ -74,13 +80,13 @@ TRY {
         #ifdef PFAP
         SlabLatticeInitialConditions(particles, parameters
         #ifdef HASHING
-        , &boxes, &neighbors, neighboring_boxes
+        , &boxes, &neighbors
         #endif
         );
         #else
         SlabRandomInitialConditions(particles, parameters
         #ifdef HASHING
-        , &boxes, &neighbors, neighboring_boxes
+        , &boxes, &neighbors
         #endif
         );
         #endif
@@ -88,13 +94,13 @@ TRY {
         #ifdef PFAP
         LatticeInitialConditions(particles, parameters
         #ifdef HASHING
-        , &boxes, &neighbors, neighboring_boxes
+        , &boxes, &neighbors
         #endif
         );
         #else
         RandomInitialConditions(particles, parameters
         #ifdef HASHING
-        , &boxes, &neighbors, neighboring_boxes
+        , &boxes, &neighbors
         #endif
         );
         #endif
@@ -103,17 +109,32 @@ TRY {
     else {
         GivenInitialConditions(parameters.input_file, particles, &parameters, &t
         #ifdef HASHING
-        , &boxes, &neighbors, neighboring_boxes
+        , &boxes, &neighbors
         #endif
         ); // already closed input_file here
     }
+    // fprintf(parameters.param_file, "Particle N is at %lg %lg.\n", particles[parameters.N].x,particles[parameters.N].y);
+    // fflush(parameters.param_file);
+
+    #ifdef HASHING
+    MeasureDensityAndForce(neighbors, particles, boxes, &parameters, neighboring_boxes);
+    #endif
+
+    // fprintf(parameters.param_file, "Measured density and force!\n");
+    // fflush(parameters.param_file);
 
     if (t + EPS > parameters.next_store_time) {
-        StorePositions(t, parameters, particles
-        #ifdef HASHING
-        , &boxes, &neighbors
+        StorePositions(t, parameters, particles);
+        #ifdef STRESS_TENSOR
+        MeasureSigmaIK(sigmaIK, neighbors, particles, boxes, parameters, neighboring_boxes);
+        MeasureSigmaActive(sigmaA, neighbors, particles, boxes, parameters);
+        // MeasureNematic(nematic, neighbors, particles, boxes, parameters);
+        StoreStressTensor(t, parameters, sigmaIK, sigmaA, nematic);
+        #ifdef WALL
+        MeasureWallPressure(&pressure_left, &pressure_right, neighbors, particles, boxes, parameters);
+        StoreWallPressure(t, parameters, pressure_left, pressure_right);
         #endif
-        );
+        #endif
         parameters.next_store_time += parameters.store_time_interval;
     }
 
@@ -147,7 +168,7 @@ TRY {
         /*
         Update the positions of the particles
         */
-        UpdateParticles(particles, parameters, &step
+        UpdateParticles(particles, &parameters, &step
         #ifdef HASHING
         , &boxes, &neighbors, neighboring_boxes, t
         #endif
@@ -155,17 +176,26 @@ TRY {
         t += step;
 
         /*
-        Store positions every store_time_interval
+        Store positions and snapshots of pressure data every store_time_interval
         */
         if (t + EPS > parameters.next_store_time) {
-            StorePositions(t, parameters, particles
-            #ifdef HASHING
-            , &boxes, &neighbors
+            StorePositions(t, parameters, particles);
+            #ifdef STRESS_TENSOR
+            MeasureSigmaIK(sigmaIK, neighbors, particles, boxes, parameters, neighboring_boxes);
+            MeasureSigmaActive(sigmaA, neighbors, particles, boxes, parameters);
+            MeasureNematic(nematic, neighbors, particles, boxes, parameters);
+            StoreStressTensor(t, parameters, sigmaIK, sigmaA, nematic);
+            #ifdef WALL
+            MeasureWallPressure(&pressure_left, &pressure_right, neighbors, particles, boxes, parameters);
+            StoreWallPressure(t, parameters, pressure_left, pressure_right);
             #endif
-            );
+            #endif
             parameters.next_store_time += parameters.store_time_interval;
         }
 
+        /*
+        Measure and store histograms (accumulated over time)
+        */
         #if defined(HASHING) && defined(DENSITY_HISTOGRAM)
         if (t + EPS > parameters.next_histogram_update) {
             if (t + EPS > parameters.next_histogram_store) store = 1;
@@ -176,7 +206,7 @@ TRY {
         }
 
         if (t + EPS > parameters.next_histogram_store) {
-            StoreDensity(t, parameters, density_histogram, density_matrix, histogram_count, &boxes, &neighbors);
+            StoreDensity(t, parameters, density_histogram, density_matrix, histogram_count);
             histogram_count = 0;
             parameters.next_histogram_store += parameters.histogram_store_interval;
         }
@@ -188,12 +218,23 @@ TRY {
             next_report_progress += duration/20;
             progress += 5;
         }
+
+        #ifdef QSAP_ZERO
+        if (parameters.stopped == 1) {
+            fprintf(parameters.param_file, "All particles stopped at time %lg!\n", t);
+            fflush(parameters.param_file);
+            StorePositions(t, parameters, particles);
+            break;            
+        }
+        #endif
     }
-    printf("Simulation done!\n");
+    fprintf(parameters.param_file, "Simulation done!\n");
     THROW; // To transition into cleaning memory.
 }
 CATCH
 {
+    // fprintf(parameters.param_file, "Final time: %lg.\n", t);
+    // fflush(parameters.param_file);
     /*
     Free up memory: every array.
     If 2d array: look at each column and free each columns
@@ -201,22 +242,29 @@ CATCH
     */
     free(particles);
     free(command_line_output);
-    fflush(stderr);
-    fflush(parameters.param_file);
-    fclose(parameters.param_file);
     fclose(parameters.data_file);
-    fclose(stderr);
 #ifdef HASHING
-    FreeBoxes(parameters.NxBox, &boxes);
+    FreeBoxes(&boxes, parameters.NxBox);
     free(neighbors);
     FreeNeighboringBoxes(&neighboring_boxes, parameters.NxBox, parameters.NyBox);
     #ifdef DENSITY_HISTOGRAM
     fclose(parameters.histogram_file);
-    FreeDensity(parameters.number_of_boxes_x, &density_matrix);
-    free(density_histogram);
+    FreeDensity(&density_matrix, parameters.number_of_boxes_x);
     fclose(parameters.density_file);
+    free(density_histogram);
     #endif
-    printf("Cleanup done!\n");
+    #ifdef STRESS_TENSOR
+    for (int i=0; i<4; i++) {
+        fclose(parameters.sigmaIK_files[i]);
+    }
+    free(parameters.sigmaIK_files);
+    FreeSigma(&sigmaIK, parameters.NxBox);
+    #endif
+    fflush(stderr);
+    fclose(stderr);
+    fprintf(parameters.param_file, "Cleanup done!\n");
+    fflush(parameters.param_file);
+    fclose(parameters.param_file);
 #endif
 }
 ETRY;

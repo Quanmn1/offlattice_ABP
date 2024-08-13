@@ -1,50 +1,43 @@
 #!/bin/bash
 
-name_exe="abp_pfaps_harmonic_qsaps_exp"
+name_exe=abp_qsaps_zero_linear
+gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-# gcc ABP.c -o $name_exe -lm -O3 -Wall
-
-name_all="pfaps_qsaps_test15_harmonic_scaleeps"
-dt=0.001
-Lx=20
-Ly=20
+name_all="qsaps_condensation_test2_stop"
+dt=0.02
+N=20000
 # liquid_fraction=0.5
-rho_m=25
-N=18000
-rmax_pfap=$1
-v=5
+Lx=40
+Ly=40
 lambda=1
-phi=10
-rmax_qsap=1
-# epsilon=1
-# epsilon=0.
-epsilon=$(echo "scale=1; 50 * $rmax_pfap"  | bc)
-# rho_small=20
-# rho_large=$(echo "scale=1; 0.6 / $rmax_pfap / $rmax_pfap"  | bc)
-# N=17500
-# rho0=$1
-# N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
-# rho_rf2=0.45
-# N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
+# rho0=$(echo "scale=1; $N / $Lx / $Ly"  | bc)
+# rho_large=$(echo "scale=1; 52 + 50 * $lambda"  | bc)
+# rho_small=$(echo "scale=1; 46 - 30 * $lambda"  | bc)
+# echo "rho_large = $rho_large"
+# echo "rho_small = $rho_small"
+rho_m=25
+v=5
+phi=1
+rmax=1
 Dr=1
-final_time=1000
-density_box_size=2
+final_time=200
+density_box_size=4
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=10
+timestep=1
 data_store=$timestep
-update_histo=2
+update_histo=1
 histo_store=$timestep
 start_time=0
 resume="no"
 
-name="$name_all"_"$rmax_pfap"
-# {
-#     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-# } \
-# 2>> "$name"_param
+name="$name_all"
+{
+    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+# ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax $Dr $final_time \
+#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 10
+} \
+2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -53,14 +46,13 @@ if [ ! -d "$dir" ]; then
     mkdir "$dir"
 else
     rm "$dir"/data*
-    rm "$dir"/histogram*
 fi
 
 # Number of times
 M=$(awk 'NF==1 {m++} END{print m}' $file)
 pad=$(echo ${#M} | awk '{print $1+1}')
 
-# Calcul of max density
+#Calcul of max density
 rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
 
 echo "rho max is $rho"
@@ -85,9 +77,9 @@ echo "rho max is $rho"
 # (iread==1) then you should increment i and open a new file, and
 # increment t up to the next time you want to record
 
-last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
-NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
-NF>2 {iread=1;print $0  >> file_out}
+last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
+NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file}}
+NF>2 {iread=1;print $0  >> file}
 END {printf("%d", i)}
 ' "$file")
 
@@ -99,7 +91,6 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$rho]
-    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]
@@ -108,9 +99,8 @@ do
     set terminal png size 1600,1000
     set output "$i.png"
     unset key
-    size=$(echo "scale=3; $rmax_pfap / 2"  | bc)
-    # size=1
-    set style fill border
+    size=$(echo "scale=1; $rmax / 10" | bc)
+    set style fill solid
     set term png font ",25"
 
     # x:y:size:color
@@ -132,54 +122,15 @@ done
 # before % and after d is taaken literaly while $pad is thenumber or file that will be taken
 # -y overwrite output file without asking
 # libx264 delivers better quality
-# ffmpeg makes nicer movies
+
+# ffmpeg -r 10 -i "$dir"/data%0"$pad"d.png -b:a 16M -vcodec libx264 "$name"-gnuplot-density.mp4 
 
 ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
+
+# ffmpeg makes nicer movies
 
 # Delete every file except the last one, for continuing simulation
 last_file=$(printf "%s/data%0${pad}d" "$dir" "$last")
 new_file="$dir"/"$name"_last_state
 mv "$last_file" "$new_file"
 rm "$dir"/data*
-
-dir="$name"_sigmaIK
-rm "$dir"/data*
-
-for file in "$dir"/"$dir"_??;
-do
-# in HOMOGENEOUS simulations, prepare a file for measurements of sigma_IK
-# file_out="$file"_data
-# rm $file_out
-# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
-
-# plot sigmaIK
-awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
-NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
-NF>2 {iread=1;print $0 >> file_out}' "$file"
-
-for i in "$dir"/data*
-do
-    # Read time from the first column of the first line
-    Time=$(head -n 1 $i | awk '{printf("%04d",int($1))}')
-    echo "sigma $i $Time";
-    gnuplot <<EOF
-    set title 'Time $Time'
-
-    # set limits to x and y axes
-    set xr[0:$Lx]
-    set yr[0:$Ly]
-    set size ratio $ratio
-    set terminal png size 1600,1600
-    set output "$i.png"
-    unset key
-    set term png font ",25"
-
-    pl "$i" skip 1 matrix with image
-    
-    set output
-EOF
-done
-
-ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$file".mp4 
-rm "$dir"/data*
-done

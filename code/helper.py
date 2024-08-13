@@ -57,8 +57,9 @@ def coarsen(array, num_combined, binwidth=1, normalize=False):
         else:
             return array
     original_len = len(array)
-    result = np.zeros(original_len//num_combined)
-    for i in range(len(result)):
+    new_len = original_len//num_combined
+    result = np.zeros( new_len )
+    for i in range(new_len):
         result[i] = np.average(array[i*num_combined:(i+1)*num_combined])
     if normalize:
         return result/np.sum(result)/binwidth
@@ -74,3 +75,20 @@ def bump(x, height, slope, mean, width):
 
 def linear(x, a, b):
     return a*x + b
+
+def force(r, e):
+    return 12*e*(np.power(r,-13) - np.power(r,-7))
+
+def penetration(v, e):
+    def f(r):
+        return force(r, e) - v
+    
+    r = optimize.fsolve(f, 0.9)
+    return r
+
+def veff_pfqs(rho, rho_star, rf, lamb, v0, rho_m, phi):
+    # rho_star: the PFAPs jamming density when rf=1. rho_star = phi_star / (pi/4)
+    return v0*np.exp(-lamb*np.tanh((rho-rho_m)/phi))*(1-rho/(rho_star/rf**2))
+
+def v_qs(rho, lamb, v0, rho_m, phi):
+    return v0*np.exp(-lamb*np.tanh((rho-rho_m)/phi))
