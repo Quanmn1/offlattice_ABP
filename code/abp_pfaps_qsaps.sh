@@ -157,6 +157,14 @@ awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprin
 NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
 NF>2 {iread=1;print $0 >> file_out}' "$file"
 
+sigma=$(awk 'BEGIN{max=0} 
+NF>2 {for (i = 1; i <= NF; i++) {
+    if ($i > max) {
+        max = $i
+    }
+}
+} END{print max}' $file)
+
 for i in "$dir"/data*
 do
     # Read time from the first column of the first line
@@ -164,6 +172,8 @@ do
     echo "sigma $i $Time";
     gnuplot <<EOF
     set title 'Time $Time'
+    set cbrange [0:$sigma]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]

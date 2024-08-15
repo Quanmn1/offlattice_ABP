@@ -49,7 +49,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
         else:
             file = test_name + f'_{rho:.0f}'
         
-        if not walls:
+        if walls:
             sigmafile = file + '_sigma_data'
         else:
             sigmafile = file + '_sigmaIK/' + file + '_sigmaIK_xx_data'
@@ -144,14 +144,17 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     """
     Checking whether the system has equilibriated at the beginning of the recorded data
     """
-    for i in range(num_segments):
-        ax.errorbar(rhos_bulk[:,i], sigmas[:,i], ls='', marker='.')
+    # for i in range(num_segments):
+    #     ax.errorbar(rhos_bulk[:,i], sigmas[:,i], ls='', marker='.')
     
     """
     After ascertaining that it has equilibriated:
     Plot averages and stds. Each segment is only one snapshot. 
     equi_index is the snapshot index at which we assume equilibrium has been reached (say, t=200)
     """
+    capsize=4
+    markersize=5
+    capthick=1.5
     if not walls:
         equi_index = 0 # since (we can verify that) data starts at equilibrium (e.g. t=100)
         plot_name = 'sigma_convergence'
@@ -163,18 +166,23 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     std_sigma = np.std(sigmas[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
     rho_bulk = np.mean(rhos_bulk[:,equi_index:], axis=-1)
     sigmas_avg = np.mean(sigmas[:,equi_index:], axis=-1)
-    ax.errorbar(rho_bulk, sigmas_avg, xerr=std_density, yerr=std_sigma, ls='', marker='.', ms=4, label="Bulk pressure")
-    
+    # ax.errorbar(rho_bulk, sigmas_avg, xerr=std_density, yerr=std_sigma, ls='', marker='.', ms=4, label="Bulk pressure")
+    datas, caps, bars1 = ax.errorbar(rho_bulk, sigmas_avg/sigmas_avg, xerr=std_density, yerr=3*std_sigma/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Bulk pressure")
+
     if walls:
         std_left= np.std(lefts[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
         std_right = np.std(rights[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
         lefts_avg = np.mean(lefts[:,equi_index:], axis=-1)
         rights_avg = np.mean(rights[:,equi_index:], axis=-1)
-        ax.errorbar(rho_bulk, lefts_avg, xerr=std_density, yerr=5*std_left, ls='', marker='.', ms=4, label="Left wall pressure")
-        ax.errorbar(rho_bulk, rights_avg, xerr=std_density, yerr=5*std_right, ls='', marker='.', ms=4, label="Right wall pressure")
+        datas, caps, bars2 = ax.errorbar(rho_bulk, lefts_avg/sigmas_avg, xerr=std_density, yerr=3*std_left/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Left wall pressure")
+        datas, caps, bars3 = ax.errorbar(rho_bulk, rights_avg/sigmas_avg, xerr=std_density, yerr=3*std_right/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Right wall pressure")
     
-    ax.legend(legends)
+    # for bar in (bars1 + bars2 + bars3):
+    #     bar.set_alpha(0.5)
+        
+    ax.legend()
     ax.set_xlim(left=0)
+    ax.axhline(1, ls='--', color='black')
     # ax.set_ylim(bottom=0)
     ax.set_title("Total pressures")
     plt.savefig(f'{test_name}_{plot_name}.png',  dpi=500, bbox_inches='tight')
@@ -195,11 +203,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
 if __name__ == "__main__":
     test_name = sys.argv[1]
     mode = sys.argv[2]
-    # start = float(sys.argv[3])
-    # end = float(sys.argv[4])
-    # space = float(sys.argv[5])
     vars = np.array(sys.argv[3].split(),dtype=float)
-    # vars = sys.argv[3].split()
     num_segments = int(sys.argv[4])
     if len(sys.argv) >= 6:
         walls = bool(sys.argv[5])

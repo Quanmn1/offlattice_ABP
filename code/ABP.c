@@ -128,7 +128,7 @@ TRY {
         #ifdef STRESS_TENSOR
         MeasureSigmaIK(sigmaIK, neighbors, particles, boxes, parameters, neighboring_boxes);
         MeasureSigmaActive(sigmaA, neighbors, particles, boxes, parameters);
-        // MeasureNematic(nematic, neighbors, particles, boxes, parameters);
+        MeasureNematic(nematic, neighbors, particles, boxes, parameters);
         StoreStressTensor(t, parameters, sigmaIK, sigmaA, nematic);
         #ifdef WALL
         MeasureWallPressure(&pressure_left, &pressure_right, neighbors, particles, boxes, parameters);
@@ -145,20 +145,6 @@ TRY {
     int progress = 0;
     double next_report_progress = t;
     double duration = parameters.final_time - t;
-
-    // printf("lg\n", t);
-
-    // for (int i = parameters.NyBox-1; i >= 0; i--) {
-    //     for (int j=0; j<parameters.NxBox;j++) {
-    //         fprintf(parameters.histogram_file, "%ld \t", boxes[j][i]);
-    //     }
-    //     fprintf(parameters.histogram_file, "\n");
-    // }
-    // for (int i = 0; i < parameters.N*2; i++) {
-    //     fprintf(parameters.histogram_file, "%ld \t", neighbors[i]);
-    // }
-    // fprintf(parameters.histogram_file, "\n");
-    // fflush(parameters.histogram_file);
 
     fprintf(parameters.param_file, "Starting simulation!\n");
     fflush(parameters.param_file);

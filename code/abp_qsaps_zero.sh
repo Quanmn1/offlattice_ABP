@@ -91,6 +91,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$rho]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]

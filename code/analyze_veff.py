@@ -28,13 +28,6 @@ def analyze_veff(test_name, mode, vars, num_segments):
         else:
             file = test_name + f'_{rho:.0f}'
         
-        # datafile = file + '_video/' + file + '_last_state'
-
-        # try:
-        #     data=np.loadtxt(datafile, skiprows=1, usecols=(3,4))
-        # except OSError:
-        #     continue
-
         datafile = file + '_v'
         try:
             data=np.loadtxt(datafile, usecols=(0,1))
@@ -49,24 +42,10 @@ def analyze_veff(test_name, mode, vars, num_segments):
             vs[ind, i] = np.mean(data_i[:,1])
             v_stds[ind, i] = np.std(data_i[:,1])/np.sqrt(N/num_segments)
 
-
         # rho_is = data[:,0]
         # v_is = data[:,1]
         # N = len(v_is)
-        print(N)
-        # print(np.max(v_is))
-        # print(np.min(v_is))
-        
-        # plot the spread of rho_i and v_i
-        # plt.hist(v_is, bins=100)
-        # plt.figure(figsize=(6,12))
-        # indices = (v_is < 3)
-        # plt.scatter(rho_is[indices], v_is[indices])
-        # plt.xlabel(r"$\rho$")
-        # plt.ylabel("v")
-        # plt.title(fr"$\rho={rho}$")
-        # plt.savefig(file + 'vspread.png', dpi=100, bbox_inches='tight')
-        # plt.close()
+        print(N)        
         # rho_measureds[ind] = np.average(rho_is)
         # rho_stds[ind] = np.std(rho_is)/np.sqrt(N)
         # obtain v average
@@ -152,9 +131,6 @@ def analyze_veff(test_name, mode, vars, num_segments):
 if __name__ == "__main__":
     test_name = sys.argv[1]
     mode = sys.argv[2]
-    # start = float(sys.argv[3])
-    # end = float(sys.argv[4])
-    # space = float(sys.argv[5])
     vars = np.array(sys.argv[3].split(),dtype=float)
     num_segments = int(sys.argv[4])
 

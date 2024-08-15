@@ -4,46 +4,42 @@ name_exe="abp_pfaps_harmonic_slab"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all="pfaps_test49_harmonic_Dr0.01_density"
-dt=0.001
+name_all=$2
+dt=0.0002
 # N=34000
-Lx=200
-Ly=300
+Lx=400
+Ly=200
 rmax=1
-rho0=$1
-N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
+# rho0=$1
+# N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
 v=5
-epsilon=50
+epsilon=100
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
 # Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
 # rf=$1
 # Pe=$(echo "scale=4; 5 / $rf"  | bc)
 # Dr=$(echo "scale=4; $v / $Pe" | bc)
-Dr=0.01
+Dr=$1
 # v_min=5
 # v_max=$1
 # rho_m=10
-# rho_large=$(echo "scale=1; (($v_max/$v_min-2)/10*1.5+1.5)*$rho_m"  | bc)
-# rho_small=$(echo "scale=1; (1-($v_max/$v_min-2)/10)*$rho_m"  | bc)
 # rho_large=$(echo "scale=3; 1 + 0.05 / $Dr"  | bc)
-rho_large=1.6
+rho_large=1.3
 # rho_small=$(echo "scale=3; 1 - 0.10 / $Dr"  | bc)
-rho_small=0.2
+rho_small=0.1
 # echo "rho_large = $rho_large"
 # echo "rho_small = $rho_small"
-# rho_0=0.9
 # rho_large=$3
 # rho_small=$2
 liquid_fraction=0.5
-# liquid_fraction=$(echo "scale=3; ( $rho_0-$rho_small ) / ( $rho_large-$rho_small )" | bc)
-final_time=15000
+final_time=10000
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=100
+timestep=50
 data_store=$timestep
 update_histo=10
 histo_store=$timestep
@@ -52,7 +48,7 @@ resume="yes"
 terminal_x=2000
 terminal_y=1000
 
-name="$name_all"_"$rho0"
+name="$name_all"_"$Dr"
 # {
 #     # time ./$name_exe $dt $N $Lx $Ly $v $epsilon $rmax $Dr $final_time \
 #     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
@@ -76,9 +72,9 @@ M=$(awk 'NF==1 {m++} END{print m}' $file)
 pad=$(echo ${#M} | awk '{print $1+1}')
 
 # in HOMOGENEOUS simulations, prepare a file for measurements of v(rho)
-file_out="$name"_v
-rm $file_out
-awk 'NF>2 {print $4,$5  >> "'"$file_out"'"}' "$file"
+# file_out="$name"_v
+# rm $file_out
+# awk 'NF>2 {print $4,$5  >> "'"$file_out"'"}' "$file"
 
 #Calcul of max density
 rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
@@ -113,6 +109,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0.7:$rho]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]
@@ -159,6 +156,8 @@ file_out="$name"_density_data
 rm $file_out
 awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$name"_density
 
+# threshold in pressure videos
+max_sigma=600
 # sigmaIK
 dir="$name"_sigmaIK
 echo "sigma"
@@ -166,18 +165,18 @@ echo "sigma"
 for file in "$dir"/"$dir"_??;
 do
 # in HOMOGENEOUS simulations, prepare a file for measurements of sigma_IK
-file_out="$file"_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
+# file_out="$file"_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
 
-#Calcul of max sigma
-sigma=$(awk 'BEGIN{max=0} 
+#Calcul of max sigma to be max of color range. If max sigma is too large (say, larger than 1000), output 1000 instead.
+sigma=$(awk -v max_sigma="$max_sigma" 'BEGIN{max=0} 
 NF>2 {for (i = 1; i <= NF; i++) {
     if ($i > max) {
         max = $i
     }
 }
-} END{print max}' $file)
+} END{ {if (max > max_sigma) {print max_sigma} else {print max} } }' $file)
 
 # plot sigma
 awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
@@ -192,6 +191,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$sigma]
+    set palette defined ( 0 "white", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]
@@ -214,25 +214,25 @@ done
 
 
 # vid of nematic, sigmaA, and total sigma (sigmaA + sigmaIK)
-for file in "$name"_sigmaA "$name"_sigma "$name"_Qxx;
+for file in "$name"_sigmaAxx "$name"_sigma "$name"_Qxx;
 do
 echo "$file"
 # in HOMOGENEOUS simulations, prepare a file for measurements of sigma
-file_out="$file"_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
+# file_out="$file"_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
 
 awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
 NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
 NF>2 {iread=1;print $0 >> file_out}' "$file"
 
-sigma=$(awk 'BEGIN{max=0} 
+sigma=$(awk -v max_sigma="$max_sigma" 'BEGIN{max=0} 
 NF>2 {for (i = 1; i <= NF; i++) {
     if ($i > max) {
         max = $i
     }
 }
-} END{print max}' $file)
+} END{ {if (max > max_sigma) {print max_sigma} else {print max} } }' $file)
 
 for i in "$dir"/data*
 do
@@ -242,6 +242,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$sigma]
+    set palette defined ( 0 "white", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]

@@ -18,7 +18,7 @@ if init == "slab":
 
 vars_hist, rho_gases_hist, rho_liquids_hist, rho_gases_std_hist, rho_liquids_std_hist, param_label = analyze_histogram(test_name, mode, vars, num_segments, fit=homo_fit)
 if init == "slab":
-    vars_slab, rho_gases_slab, rho_liquids_slab, rho_gases_std_slab, rho_liquids_std_slab, param_label = analyze_slab(test_name, mode, vars, num_segments)
+    vars_slab, rho_gases_slab, rho_liquids_slab, rho_gases_std_slab, rho_liquids_std_slab, param_label, translated_distances = analyze_slab(test_name, mode, vars, num_segments)
 
 fig, ax = plt.subplots(figsize = (6,6))
 ax.set_ylabel(param_label)
@@ -40,8 +40,9 @@ plt.close()
 if init == "slab":
     # in pfaps_test44: pressures_gas_tot (read from _sigma files) is sum of actual pressures and Qxx. 
     # Qxx in test44 is NOT nematic tensor, it's the traceful nematic tensor.
-    vars_data, pressures_gas, pressures_liquid, gas_std, liquid_std, param_label = analyze_slab(test_name, mode, vars, num_segments, data="sigma", fit=slab_fit)
-    # vars_data, pressures_gas_Q, pressures_liquid_Q, std, std, param_label = analyze_slab(test_name, mode, vars, num_segments, data="Qxx")
+    vars_data, pressures_gas_Q, pressures_liquid_Q, _, _, param_label, _  = analyze_slab(test_name, mode, vars, num_segments, data="Qxx", fit=slab_fit, distances_provided = translated_distances)
+    vars_data, pressures_gas_Axx, pressures_liquid_Axx, _, _, param_label, _  = analyze_slab(test_name, mode, vars, num_segments, data="sigmaAxx", fit=slab_fit, distances_provided = translated_distances)
+    vars_data, pressures_gas, pressures_liquid, gas_std, liquid_std, param_label, _ = analyze_slab(test_name, mode, vars, num_segments, data="sigma", fit=slab_fit, distances_provided = translated_distances)
 
     # pressures_gas = pressures_gas_tot - pressures_gas_Q
     # pressures_liquid = pressures_liquid_tot - pressures_liquid_Q

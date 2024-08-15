@@ -1350,7 +1350,6 @@ void GivenInitialConditions(FILE* input, particle* particles, param* parameters,
     #endif
     char line[100];
     char *token;
-    // int num_spaces;
 
     fprintf(parameters[0].param_file, "Initialization starting now!\n");
     fflush(parameters[0].param_file);
@@ -1363,22 +1362,9 @@ void GivenInitialConditions(FILE* input, particle* particles, param* parameters,
     while (fgets(line, sizeof(line), input)) {
         line[strcspn(line, "\n")] = 0;
 
-        // num_spaces = CountSpaces(line, ' ');
-
-        // if (num_spaces == 3) {
-        //     // 4 columns (3 tabs)
-        //     sscanf(line, "%lg %lg %lg %*g\n", &x, &y, &theta);
-        // } else if (num_spaces == 4) {
-        //     // 5 columns (4 tabs)
-        //     sscanf(line, "%lg %lg %lg %*g %*g\n", &x, &y, &theta);
-        // } else {
-        //     fprintf(parameters[0].param_file, "Unexpected %d columns in line: %s", num_spaces, line);
-        //     fflush(parameters[0].param_file);
-        //     continue;
-        // }
-
         /* 
         don't know how many columns there are, but the first three are x,y,theta
+        each column should be separated by either spaces, tabs, or both
         */
         token = strtok(line, " \t");
         particles[i].x = strtod(token, NULL);
@@ -1459,6 +1445,65 @@ void GivenInitialConditions(FILE* input, particle* particles, param* parameters,
 //         AddInBox(i, bi, bj, boxes, neighbors, particles);
 //         #endif
 //     }
+// }
+
+// void ManualInitialConditions(particle* particles, param parameters
+//                         #ifdef HASHING
+//                         , long*** boxes, long** neighbors
+//                         #endif
+//                         ){
+//     double Lx = parameters.Lx;
+//     double Ly = parameters.Ly;
+//     long N = parameters.N;
+//     long i;
+//     #ifdef HASHING
+//     double box_size = parameters.box_size;
+//     int bi, bj;
+//     #endif
+//     particles[0].x = 0.4;
+//     particles[0].y = 0.2;
+
+//     particles[1].x = 2.9;
+//     particles[1].y = 2.9;
+
+//     particles[2].x = 1.9;
+//     particles[2].y = 2.2;
+
+//     particles[3].x = 3.9;
+//     particles[3].y = 0.2;
+
+//     particles[4].x = 0.4;
+//     particles[4].y = 3.7;
+
+//     particles[5].x = 1.9;
+//     particles[5].y = 1.7;
+
+//     particles[6].x = 2.4;
+//     particles[6].y = 1.7;
+
+//     particles[7].x = 3.9;
+//     particles[7].y = 3.7;
+
+//     particles[8].x = 2.4;
+//     particles[8].y = 2.2;
+
+//     particles[9].x = 2.7;
+//     particles[9].y = 2.9;
+    
+//     for (i=0; i<N; i++) {
+//         particles[i].theta = 2*M_PI*genrand64_real3();
+//         particles[i].fx = 0;
+//         particles[i].fy = 0;
+//         #if defined NONE || defined PFAP
+//         particles[i].v = parameters.v;
+//         #endif
+//         #ifdef HASHING
+//         // Store the box and neighbor information of particles
+//         GetBox(&bi, &bj, particles[i].x, particles[i].y, Lx, Ly, box_size);
+//         AddInBox(i, bi, bj, boxes, neighbors, particles);
+//         #endif
+//     }
+//     fprintf(parameters.param_file, "Done initializing boxes, start initializing densities!\n");
 // }
 
 void RandomInitialConditions(particle* particles, param parameters

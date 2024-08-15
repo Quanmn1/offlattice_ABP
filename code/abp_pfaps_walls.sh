@@ -16,29 +16,7 @@ N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
 v=5
 epsilon=100
-# epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
-# Pe=$1
-# Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
-# rf=$1
-# Pe=$(echo "scale=4; 5 / $rf"  | bc)
-# Dr=$(echo "scale=4; $v / $Pe" | bc)
 Dr=0.5
-# v_min=5
-# v_max=$1
-# rho_m=10
-# rho_large=$(echo "scale=1; (($v_max/$v_min-2)/10*1.5+1.5)*$rho_m"  | bc)
-# rho_small=$(echo "scale=1; (1-($v_max/$v_min-2)/10)*$rho_m"  | bc)
-# rho_large=$(echo "scale=3; 1 + 0.05 / $Dr"  | bc)
-# rho_large=1.6
-# rho_small=$(echo "scale=3; 1 - 0.10 / $Dr"  | bc)
-# rho_small=0.2
-# echo "rho_large = $rho_large"
-# echo "rho_small = $rho_small"
-# rho_0=0.9
-# rho_large=$3
-# rho_small=$2
-# liquid_fraction=0.5
-# liquid_fraction=$(echo "scale=3; ( $rho_0-$rho_small ) / ( $rho_large-$rho_small )" | bc)
 final_time=1000
 # linear wall force
 wall_size=10
@@ -127,6 +105,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0.7:$rho]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]
@@ -209,6 +188,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$sigma]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]
@@ -259,6 +239,7 @@ do
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$sigma]
+    set palette defined ( 0 "orange", 1 "dark-orange" )
 
     # set limits to x and y axes
     set xr[0:$Lx]

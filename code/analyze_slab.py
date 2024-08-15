@@ -10,8 +10,6 @@ def profile(x, rho_gas, rho_liquid, x1, x2, slope1, slope2):
     return np.tanh(slope1*(x-x1)) * np.tanh(slope2*(x2-x)) * (rho_liquid-rho_gas)/2 + (rho_liquid+rho_gas)/2
 
 def fit_tanh(x_lattice, one_dim_profile, one_dim_profile_std, params):
-    # rho_gas0 = params['rho_small']
-    # rho_liquid0 = params['rho_large']
     rho_gas0 = np.min(one_dim_profile)
     rho_liquid0 = np.max(one_dim_profile)
     x10 = params['Lx']*(0.5-params['liquid_fraction']/2)
@@ -29,7 +27,7 @@ def fit_tanh(x_lattice, one_dim_profile, one_dim_profile_std, params):
     dof = len(x_lattice) - 6
     return popt, pcov, chisquare, dof
 
-def combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params):
+def combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params, distances_provided = None):
     """
     Combine multiple profiles with same x_lattices into a fit.
     one_dim_profiles is a list of 1D arrays.
@@ -38,17 +36,25 @@ def combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params):
     """
     Lx = params['Lx']
     x_lattice_multiple = []
-    for profile in one_dim_profiles:
-        center_of_mass = center_of_mass_pbc(x_lattice, Lx, profile)
-        translated = translate_pbc(x_lattice, Lx, Lx/2-center_of_mass)
-        x_lattice_multiple.append(translated)
+    distances = np.zeros(len(one_dim_profiles))
+    if distances_provided is None:
+        for ind, profile in enumerate(one_dim_profiles):
+            center_of_mass = center_of_mass_pbc(x_lattice, Lx, profile)
+            translated = translate_pbc(x_lattice, Lx, Lx/2 - center_of_mass)
+            distances[ind] = Lx/2 - center_of_mass
+            x_lattice_multiple.append(translated)
+    else:
+        for ind, profile in enumerate(one_dim_profiles):
+            translated = translate_pbc(x_lattice, Lx, distances_provided[ind])
+            x_lattice_multiple.append(translated)
+
     x_lattice_mult = np.concatenate(x_lattice_multiple)
     one_dim_profile_mult = np.concatenate(one_dim_profiles)
     one_dim_profile_std_mult = np.concatenate(one_dim_profile_stds)
-    return x_lattice_mult, one_dim_profile_mult, one_dim_profile_std_mult
+    return x_lattice_mult, one_dim_profile_mult, one_dim_profile_std_mult, distances
 
 
-def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density", fit="tanh"):
+def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density", fit="tanh", distances_provided = None):
     """
     vars: a string of the the parameters that the simulation varies
 
@@ -73,6 +79,14 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
     rho_liquids = np.zeros(number)
     rho_gases_std = np.zeros(number)
     rho_liquids_std = np.zeros(number)
+
+    name = f'{test_name}_{vars[0]:.2f}'
+    param_file = f'{name}_param'
+    params, N = read_param(param_file)
+    tf = params['final_time']
+    segment_time = int(tf / num_segments)
+    store_time = params['store_time_interval']
+    translated_distances = np.zeros((number, num_segments, int(segment_time / store_time)))
 
     for (test_num, var) in enumerate(vars):
         name = f'{test_name}_{var:.2f}'
@@ -151,7 +165,12 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                             continue
 
                         # fit and plot the profile, shifted. Always should shift, so I removed the shifted parameter.
-                        x_lattice_mult, one_dim_profile_mult, one_dim_profile_mult_std = combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params)
+                        if distances_provided is None:
+                            x_lattice_mult, one_dim_profile_mult, one_dim_profile_mult_std, translated_distance = combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params)
+                            translated_distances[test_num, count-1, :] = translated_distance
+                        else:
+                            x_lattice_mult, one_dim_profile_mult, one_dim_profile_mult_std, _ = combine_profiles(x_lattice, one_dim_profiles, one_dim_profile_stds, params, distances_provided[test_num, count-1])
+                        
                         if bins:
                             binning = np.digitize(x_lattice_mult, profile_bins)
                             for i in range(Lx//binsize):
@@ -190,9 +209,9 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                                     perr = np.sqrt(np.diag(pcov))
                                     rho_gases_std[test_num] = perr[0]
                                     rho_liquids_std[test_num] = perr[1]
-                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.3f}\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\pm {rho_liquids_std[test_num]:.3f}$')
+                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.4f}\pm {rho_gases_std[test_num]:.4f}, \\rho_l = {rho_liquids[test_num]:.4f}\pm {rho_liquids_std[test_num]:.4f}$')
                                 else:
-                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {popt[0]:.3f}, \\rho_l = {popt[1]:.3f}$')
+                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {popt[0]:.4f}, \\rho_l = {popt[1]:.4f}$')
                                     ax.text(1.1,0.6, 'Invalid fit', transform=ax.transAxes)
                                 # ax.text(0.85,0.95, f'$\chi^2 / dof = {chisquare:.2f}/{dof}$', transform=ax.transAxes)
                         elif fit == "average":
@@ -262,7 +281,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
         for i in range(len(vars)):
             f.write(f"{vars[i]:.2f} \t {rho_gases[i]:.4f} \t {rho_liquids[i]:.4f}\n")
 
-    return vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label
+    return vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label, translated_distances
 
 if __name__ == "__main__":
     start = float(sys.argv[3])
