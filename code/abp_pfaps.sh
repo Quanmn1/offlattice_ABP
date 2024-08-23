@@ -7,14 +7,14 @@ name_exe="abp_pfaps_harmonic_slab"
 name_all=$2
 dt=0.0002
 # N=34000
-Lx=400
-Ly=200
+Lx=600
+Ly=300
 rmax=1
 # rho0=$1
 # N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
 v=5
-epsilon=100
+epsilon=50
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
 # Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
@@ -34,7 +34,7 @@ rho_small=0.1
 # rho_large=$3
 # rho_small=$2
 liquid_fraction=0.5
-final_time=10000
+final_time=17500
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)

@@ -53,6 +53,9 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
             sigmafile = file + '_sigma_data'
         else:
             sigmafile = file + '_sigmaIK/' + file + '_sigmaIK_xx_data'
+        
+        # sigmafile=file + '_sigmaAxx_data'
+        
         plot_name = 'direct_pressure'
         try:
             sigma=np.loadtxt(sigmafile)

@@ -1,7 +1,7 @@
 #define MT
 #define PBC
 // #define QSAP_TANH
-// #define QSAP_EXP
+#define QSAP_EXP
 // #define QSAP_ZERO_LINEAR
 // #define QSAP_ZERO_SMOOTH
 #if defined(QSAP_ZERO_LINEAR) || defined(QSAP_ZERO_SMOOTH)
@@ -22,7 +22,7 @@
 #define DENSITY_HISTOGRAM
 // #define TESTING_DENSITY
 // #define TESTING_FORCE
-#define INIT_SLAB
+// #define INIT_SLAB
 // #define WALL
 
 /*
