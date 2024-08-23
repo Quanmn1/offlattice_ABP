@@ -1525,7 +1525,7 @@ void RandomInitialConditions(particle* particles, param parameters
     int bi, bj;
     #endif
 
-    int N = parameters.N;
+    long N = parameters.N;
     for (i=0; i<N; i++){
         #ifdef PFAP
         mindist2 = -1;
