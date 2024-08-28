@@ -13,6 +13,7 @@ name_all="pfaps_test40_homo_tinydt"
 mode="pfap"
 num_segments=5
 # input_density="pfaps_homo/pfaps_phase_diagram1_histo_phase_diagram"
+# input_density="pfaps_homo/pfaps_phase_diagram1_histo_phase_diagram"
 init=slab
 homo_fit="gauss"
 vars=$(seq $start $space $ending)
