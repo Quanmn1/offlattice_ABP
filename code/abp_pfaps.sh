@@ -1,61 +1,61 @@
 #!/bin/bash
-
-name_exe="abp_pfaps_harmonic_slab"
+{
+name_exe="abp_pfaps_wca"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all=$2
-dt=0.0002
+name_all=$1
+dt=0.00005
 # N=34000
-Lx=600
-Ly=300
-rmax=1
-# rho0=$1
-# N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
+Lx=200
+Ly=200
+rmax=1.122462048
+rho0=$2
+N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
-v=5
-epsilon=50
+v=24
+epsilon=1
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
 # Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
 # rf=$1
 # Pe=$(echo "scale=4; 5 / $rf"  | bc)
 # Dr=$(echo "scale=4; $v / $Pe" | bc)
-Dr=$1
+Dr=1.8
 # v_min=5
 # v_max=$1
 # rho_m=10
 # rho_large=$(echo "scale=3; 1 + 0.05 / $Dr"  | bc)
-rho_large=1.3
+# rho_large=1.3
 # rho_small=$(echo "scale=3; 1 - 0.10 / $Dr"  | bc)
-rho_small=0.1
+# rho_small=0.1
 # echo "rho_large = $rho_large"
 # echo "rho_small = $rho_small"
 # rho_large=$3
 # rho_small=$2
-liquid_fraction=0.5
-final_time=17500
+# liquid_fraction=0.5
+final_time=500
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=50
+timestep=10
 data_store=$timestep
-update_histo=10
+update_histo=2
 histo_store=$timestep
-start_time=0
-resume="yes"
-terminal_x=2000
-terminal_y=1000
+start_time=100
+resume="no"
+terminal_x=1500
+terminal_y=1500
 
-name="$name_all"_"$Dr"
-# {
-#     # time ./$name_exe $dt $N $Lx $Ly $v $epsilon $rmax $Dr $final_time \
-#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-#     time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
-#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-# } \
-# 2>> "$name"_param
+name="$name_all"_"$rho0"
+{
+    time ./$name_exe $dt $N $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $v $epsilon $rmax $Dr $final_time \
+    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+} \
+2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -262,3 +262,6 @@ done
 ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$file".mp4 
 rm "$dir"/data*
 done
+
+exit
+}

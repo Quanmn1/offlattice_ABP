@@ -1,24 +1,23 @@
 #!/bin/bash
-
-name_exe="abp_pfaps_harmonic_qsaps_exp"
+{
+name_exe="abp_pfaps_harmonic_qsaps_exp_slab"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
-
-name_all=$2
+name_all=$1
 dt=0.0001
-Lx=20
+Lx=40
 Ly=20
 v=5
 Dr=1
-# lp=$(echo "scale=0; $v / $Dr"  | bc)
-# lprf=$1
-# rmax_pfap=$(echo "scale=2; $lp / $lprf"  | bc)
-# rho_large=$3
-# rho_small=$2
-# liquid_fraction=0.5
+lp=$(echo "scale=0; $v / $Dr"  | bc)
+lprf=$2
+rmax_pfap=$(printf "%.2f" "$(echo "scale=4; $lp / $lprf" | bc)")
+rho_large=$4
+rho_small=$3
+liquid_fraction=0.5
 rho_m=25
-N=8000
-rmax_pfap=$1
+# N=8000
+# rmax_pfap=$1
 lambda=1
 phi=10
 rmax_qsap=1
@@ -41,13 +40,15 @@ update_histo=2
 histo_store=$timestep
 start_time=0
 resume="no"
+terminal_x=2000
+terminal_y=1000
 
 name="$name_all"_"$rmax_pfap"
 {
-    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    # time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+    time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
 } \
 2>> "$name"_param
 
@@ -110,7 +111,7 @@ do
     set xr[0:$Lx]
     set yr[0:$Ly]
     set size ratio $ratio
-    set terminal png size 1600,1000
+    set terminal png size $terminal_x,$terminal_y
     set output "$i.png"
     unset key
     size=$(echo "scale=3; $rmax_pfap / 2"  | bc)
@@ -139,7 +140,7 @@ done
 # libx264 delivers better quality
 # ffmpeg makes nicer movies
 
-ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
+ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
 
 # Delete every file except the last one, for continuing simulation
 last_file=$(printf "%s/data%0${pad}d" "$dir" "$last")
@@ -177,11 +178,6 @@ NF>2 {for (i = 1; i <= NF; i++) {
     }
 }
 } END{ {if (max > max_sigma) {print max_sigma} else {print max} } }' $file)
-
-# plot sigma
-awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
-NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}
-NF>2 {iread=1;print $0 >> file_out}' "$file"
 
 for i in "$dir"/data*
 do
@@ -262,3 +258,6 @@ done
 ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$file".mp4 
 rm "$dir"/data*
 done
+
+exit
+}

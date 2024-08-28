@@ -30,17 +30,17 @@ ax.set_xlabel('Density')
 test_name_histo = sys.argv[2]
 test_name_slab = sys.argv[3]
 
-data = np.loadtxt(file, delimiter=' ', skiprows=1)
-skip=0
-rho_gases_prev = data[:6-skip, 3]
-rho_liquids_prev = data[:6-skip,1]
-rho_gases_prev_std = data[:6-skip, 4]
-rho_liquid_prev_std = data[:6-skip, 2]
-Drs = data[:6-skip,0]
-vars_prev = 5/Drs
-# Plot binodal from previous
-ax.errorbar(rho_gases_prev, vars_prev, xerr=rho_gases_prev_std, color='green', ms=marker_size, marker='.', label="Yongfeng's")
-ax.errorbar(rho_liquids_prev, vars_prev, xerr=rho_liquid_prev_std, color='green', ms=marker_size, marker='.')
+# data = np.loadtxt(file, delimiter=' ', skiprows=1)
+# skip=0
+# rho_gases_prev = data[:6-skip, 3]
+# rho_liquids_prev = data[:6-skip,1]
+# rho_gases_prev_std = data[:6-skip, 4]
+# rho_liquid_prev_std = data[:6-skip, 2]
+# Drs = data[:6-skip,0]
+# vars_prev = 5/Drs
+# # Plot binodal from previous
+# ax.errorbar(rho_gases_prev, vars_prev, xerr=rho_gases_prev_std, color='green', ms=marker_size, marker='.', label="Yongfeng's")
+# ax.errorbar(rho_liquids_prev, vars_prev, xerr=rho_liquid_prev_std, color='green', ms=marker_size, marker='.')
 
 # data = np.loadtxt(file_anal, skiprows=1)
 # rho_gases_prev = data[:, -2]*50
@@ -56,9 +56,9 @@ ax.errorbar(rho_liquids_prev, vars_prev, xerr=rho_liquid_prev_std, color='green'
 file = test_name_histo + '_histo_phase_diagram'
 if os.path.exists(file):
     data = np.loadtxt(file, skiprows=1)
-    rho_gases_hist = data[:, -2]
-    rho_liquids_hist = data[:,-1]
-    vars_hist = data[:,-3]
+    rho_gases_hist = data[:, 1]
+    rho_liquids_hist = data[:,2]
+    vars_hist = data[:,0]
     # Plot binodal from histogram
     ax.errorbar(rho_gases_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+', label="Homo, "+r"$L_x=L_y=200$")
     ax.errorbar(rho_liquids_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+')
@@ -81,14 +81,14 @@ if os.path.exists(file):
     rho_liquids_slab = data[:,2]
     vars_slab = data[:,0]
     # Plot binodal from slab
-    ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label="Slab, "+r"$L_x=600,L_y=300$")
+    ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label="Slab, "+r"$L_x=400,L_y=200$")
     ax.errorbar(rho_liquids_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x')
 
-ax.set_title("Phase diagram")
+ax.set_title("Phase diagram for " + r"$\epsilon=100$")
 ax.set_xlim(left=0)
 ax.set_ylim(bottom=0)
 ax.legend()
 # ax.set_xlim(0.0, 1.2)
 # ax.set_ylim(14, 33)
-plt.savefig('pfap_harmonic_compare_phase_diagram_2.png', dpi=300, bbox_inches='tight')
+plt.savefig('pfap_harmonic_compare_phase_diagram_largeeps.png', dpi=300, bbox_inches='tight')
 plt.close()

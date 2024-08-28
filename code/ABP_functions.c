@@ -1086,7 +1086,7 @@ void MeasureDensityAndForce(long* neighbors, particle* particles, long** boxes, 
         particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;
         particles[i].speed = particles[i].move_x * cos(particles[i].theta) + particles[i].move_y * sin(particles[i].theta);
         #ifdef QSAP_ZERO
-        if ((particles[i].move_x > EPS) || (parameters[0].move_y > EPS)) parameters[0].stopped = 0;
+        if ((particles[i].move_x > EPS) || (particles[i].move_y > EPS)) parameters[0].stopped = 0;
         #endif
     }
 }
@@ -1754,11 +1754,10 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     int bi, bj;
     #endif
 
-
-    double lattice_size = fmin(sqrt(2/sqrt(3)/parameters.rho_large) - 0.01, 1);
+    // the lattice size necessary for producing rho_large
+    double max_lattice_size_liquid = sqrt(2/sqrt(3)/parameters.rho_large) - 0.01;
     // horizontal lattice spacing: should keep finite when r_f is small
-    double a = fmax(0.3, lattice_size * parameters.interaction_range_pfap); 
-    if (a < EPS) a = 0.1 * parameters.interaction_range_qsap;
+    double a = fmin(max_lattice_size_liquid, fmax(0.3, parameters.interaction_range_pfap)); 
 
     // double a = 0.9*parameters.interaction_range_pfap; //horizontal lattice spacing
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)

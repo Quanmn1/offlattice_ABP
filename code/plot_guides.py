@@ -16,14 +16,15 @@ test_name = sys.argv[1]
 pf_binodal_test = sys.argv[2]
 
 file = test_name + '_histo_phase_diagram'
-pf_file = pf_binodal_test + '_histo_phase_diagram'
+pf_file = pf_binodal_test + '_density_pressure'
 # pf_rmax1_file = pf_rmax1_name + '_histo_phase_diagram'
 
 if os.path.exists(pf_file):
     data = np.loadtxt(pf_file, skiprows=1)
-    Pes_pfs = data[1:, -3]
-    pf_gases_density = data[1:, -2]
-    pf_liquids_density = data[1:, -1]
+    skip = 1
+    Pes_pfs = data[skip:, 0]
+    pf_gases_density = data[skip:, 1]
+    pf_liquids_density = data[skip:, 2]
     # rf_pfs = 5/0.5/Pes_pfs
 
 # Add lines of QSAP binodals and PFAP crystal densities to the phase diagram
@@ -42,11 +43,11 @@ if os.path.exists(file):
     # ax.set_xlabel('Density')
 
     data = np.loadtxt(file, skiprows=1)
-    rho_gases = data[:, -2]
-    rho_liquids = data[:,-1]
-    Pes = data[:,-3]
+    rho_gases = data[:,1]
+    rho_liquids = data[:,2]
+    Pes = data[:,0]
     rfs = 5/0.5/Pes
-    rfs_dense = np.linspace(0.10, 0.24, 100)
+    rfs_dense = np.linspace(0.08, 0.32, 100)
     Pes_dense = 5/0.5/rfs_dense
     # # Plot binodal from histogram
     # ax.errorbar(rho_gases, rfs, color='blue', ls='', marker='.', label="Gas (histogram)")
@@ -77,18 +78,21 @@ if os.path.exists(file):
     # ax.plot(rho_gases_rmax1, Pes_pfs_rmax1, label="Vary Dr", color='C1', marker='+', ls='')
     # ax.plot(rho_liquids_rmax1, Pes_pfs_rmax1, color='C1', marker='+', ls='')
 
-
+    # Plot binodal from histogram
     area_fraction_gas = area_fraction(rho_gases, rfs)
     area_fraction_liquid = area_fraction(rho_liquids, rfs)
-    # Plot binodal from histogram
     ax.plot(area_fraction_gas, Pes, color='C0', ls='', marker='.', ms=12, label="PF+QS")
     ax.plot(area_fraction_liquid, Pes, color='C0', ls='', marker='.', ms=12)
-    qs_gases_areafrac = area_fraction(2.96, rfs_dense)
-    qs_liquids_areafrac = area_fraction(20.6, rfs_dense)
+
+    # QS phase diagrams
+    qs_gases_areafrac = area_fraction(0, rfs_dense)
+    qs_liquids_areafrac = area_fraction(25, rfs_dense)
     # init = area_fraction(19.44, rfs_dense)
     # rho_m = area_fraction(25, rfs_dense)
     ax.plot(qs_gases_areafrac, Pes_dense, label="QS", color='C1')
     ax.plot(qs_liquids_areafrac, Pes_dense, color='C1')
+
+    # PF phase diagram
     # ax.axvline(np.pi/2/np.sqrt(3), label="PF crystals", color='black')
     # ax.plot(rho_m, rfs_dense, label="QS density scale", color='grey')
     # pf_gases_areafrac = area_fraction(pf_gases_density, rf_pfs)
@@ -100,6 +104,6 @@ if os.path.exists(file):
     # ax.plot(init, 5/rfs_dense, label="Initial density", color='purple', marker='', ls='--')    
     ax.legend()
     ax.set_title("")
-    plt.savefig('pfaps_qsaps_harmonic_test14_phase_diagram.png', dpi=300, bbox_inches='tight')
+    plt.savefig('pfqs_condensation_loweps_phase_diagram.png', dpi=300, bbox_inches='tight')
     plt.close()
 

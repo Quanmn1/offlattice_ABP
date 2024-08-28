@@ -107,7 +107,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     # plot sigma vs rho
     fig, ax = plt.subplots()
     ax.set_xlabel(r'$\rho$')
-    ax.set_ylabel(r'$p(\rho)$')
+    ax.set_ylabel(r'$p/p_{bulk}$')
     final_time = params["final_time"]
     start_time = params["next_store_time"]
     legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
@@ -156,7 +156,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     equi_index is the snapshot index at which we assume equilibrium has been reached (say, t=200)
     """
     capsize=4
-    markersize=5
+    markersize=7
     capthick=1.5
     if not walls:
         equi_index = 0 # since (we can verify that) data starts at equilibrium (e.g. t=100)
@@ -173,19 +173,20 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     datas, caps, bars1 = ax.errorbar(rho_bulk, sigmas_avg/sigmas_avg, xerr=std_density, yerr=3*std_sigma/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Bulk pressure")
 
     if walls:
+        space_between_plotted_bars = 0.01
         std_left= np.std(lefts[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
         std_right = np.std(rights[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
         lefts_avg = np.mean(lefts[:,equi_index:], axis=-1)
         rights_avg = np.mean(rights[:,equi_index:], axis=-1)
-        datas, caps, bars2 = ax.errorbar(rho_bulk, lefts_avg/sigmas_avg, xerr=std_density, yerr=3*std_left/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Left wall pressure")
-        datas, caps, bars3 = ax.errorbar(rho_bulk, rights_avg/sigmas_avg, xerr=std_density, yerr=3*std_right/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Right wall pressure")
+        datas, caps, bars2 = ax.errorbar(rho_bulk-space_between_plotted_bars, lefts_avg/sigmas_avg, xerr=std_density, yerr=3*std_left/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Left wall pressure")
+        datas, caps, bars3 = ax.errorbar(rho_bulk+space_between_plotted_bars, rights_avg/sigmas_avg, xerr=std_density, yerr=3*std_right/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Right wall pressure")
     
     # for bar in (bars1 + bars2 + bars3):
     #     bar.set_alpha(0.5)
         
     ax.legend()
     ax.set_xlim(left=0)
-    ax.axhline(1, ls='--', color='black')
+    ax.axhline(1, ls='--', color='grey')
     # ax.set_ylim(bottom=0)
     ax.set_title("Total pressures")
     plt.savefig(f'{test_name}_{plot_name}.png',  dpi=500, bbox_inches='tight')

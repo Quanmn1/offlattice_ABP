@@ -1,9 +1,9 @@
 #!/bin/bash
-
+{
 name_exe=abp_qsaps2
-# gcc ABP.c -o $name_exe -lm
+# gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all="qsaps_test10"
+name_all=$1
 dt=0.05
 N=40000
 # liquid_fraction=0.5
@@ -120,7 +120,7 @@ done
 
 # ffmpeg -r 10 -i "$dir"/data%0"$pad"d.png -b:a 16M -vcodec libx264 "$name"-gnuplot-density.mp4 
 
-ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
+ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
 
 # ffmpeg makes nicer movies
 
@@ -172,3 +172,6 @@ rm "$dir"/data*
 # done
 
 # find "$dir" -type f -name "histogram*" ! -name "*.*" -exec rm -f {} +
+
+exit
+}

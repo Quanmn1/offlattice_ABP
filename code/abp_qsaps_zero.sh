@@ -1,9 +1,9 @@
 #!/bin/bash
-
+{
 name_exe=abp_qsaps_zero_linear
 gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all="qsaps_condensation_test2_stop"
+name_all=$1
 dt=0.02
 N=20000
 # liquid_fraction=0.5
@@ -126,7 +126,7 @@ done
 
 # ffmpeg -r 10 -i "$dir"/data%0"$pad"d.png -b:a 16M -vcodec libx264 "$name"-gnuplot-density.mp4 
 
-ffmpeg -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
+ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$name"-gnuplot-density.mp4 
 
 # ffmpeg makes nicer movies
 
@@ -135,3 +135,6 @@ last_file=$(printf "%s/data%0${pad}d" "$dir" "$last")
 new_file="$dir"/"$name"_last_state
 mv "$last_file" "$new_file"
 rm "$dir"/data*
+
+exit
+}

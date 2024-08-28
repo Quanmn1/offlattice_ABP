@@ -45,4 +45,3 @@ last_file=$(printf "%s/data%0${pad}d" "$dir" "$last")
 new_file="$dir"/"$name"_last_state
 mv "$last_file" "$new_file"
 rm "$dir"/data*
-rm "$dir"/last_state

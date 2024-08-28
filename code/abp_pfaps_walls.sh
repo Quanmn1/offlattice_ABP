@@ -1,17 +1,17 @@
 #!/bin/bash
-
+{
 name_exe="abp_pfaps_harmonic_wall"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
-name_all="pfaps_test48_wca_wall"
+name_all=$1
 dt=0.001
 # N=34000
 Lx=200
 Ly=200
 rmax=1
 right_limit=$(echo "scale=6; $Lx - $rmax"  | bc)
-rho0=$1
+rho0=$2
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
 v=5
@@ -259,3 +259,6 @@ done
 ffmpeg -loglevel fatal -y -r 10 -i "$dir"/data%0"$pad"d.png -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$file".mp4 
 rm "$dir"/data*
 done
+
+exit
+}

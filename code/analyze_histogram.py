@@ -69,7 +69,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
     elif mode == "pfqs":
         # pad = 2
         param_label = r"$l_p/r_f$"
-        num_combined = 1
+        num_combined = 4
     # vars = np.linspace(start, end, number)
     rho_gases = np.zeros(number)
     rho_liquids = np.zeros(number)
@@ -167,7 +167,6 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
                                 liquid = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                                 max_density = densities_fit[-1]
                                 width = max_density - liquid
-                                width = 0.15
                                 gas_indices = (densities_fit > gas - width) & (densities_fit < gas + width)
                                 liquid_indices = (densities_fit > liquid - width) & (densities_fit < liquid + width)
                                 # popt, pcov, chisquare, dof = fit_gausses(densities_fit[indices], histogram_fit[indices], histogram_std_fit[indices], params, gas, liquid)
