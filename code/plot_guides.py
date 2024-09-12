@@ -16,15 +16,16 @@ test_name = sys.argv[1]
 pf_binodal_test = sys.argv[2]
 
 file = test_name + '_histo_phase_diagram'
-pf_file = pf_binodal_test + '_density_pressure'
+pf_file = pf_binodal_test + '_histo_phase_diagram'
 # pf_rmax1_file = pf_rmax1_name + '_histo_phase_diagram'
 
 if os.path.exists(pf_file):
     data = np.loadtxt(pf_file, skiprows=1)
-    skip = 1
-    Pes_pfs = data[skip:, 0]
-    pf_gases_density = data[skip:, 1]
-    pf_liquids_density = data[skip:, 2]
+    skiphigh = 1
+    skiplow = -3
+    Pes_pfs = data[skiphigh:skiplow, 0]
+    pf_gases_density = data[skiphigh:skiplow, 1]
+    pf_liquids_density = data[skiphigh:skiplow, 2]
     # rf_pfs = 5/0.5/Pes_pfs
 
 # Add lines of QSAP binodals and PFAP crystal densities to the phase diagram
@@ -46,9 +47,9 @@ if os.path.exists(file):
     rho_gases = data[:,1]
     rho_liquids = data[:,2]
     Pes = data[:,0]
-    rfs = 5/0.5/Pes
-    rfs_dense = np.linspace(0.08, 0.32, 100)
-    Pes_dense = 5/0.5/rfs_dense
+    rfs = 5/1/Pes
+    rfs_dense = np.linspace(0.04, 0.14, 100)
+    Pes_dense = 5/1/rfs_dense
     # # Plot binodal from histogram
     # ax.errorbar(rho_gases, rfs, color='blue', ls='', marker='.', label="Gas (histogram)")
     # ax.errorbar(rho_liquids, rfs, color='orange', ls='', marker='.', label = "Liquid (histogram)")
@@ -85,8 +86,8 @@ if os.path.exists(file):
     ax.plot(area_fraction_liquid, Pes, color='C0', ls='', marker='.', ms=12)
 
     # QS phase diagrams
-    qs_gases_areafrac = area_fraction(0, rfs_dense)
-    qs_liquids_areafrac = area_fraction(25, rfs_dense)
+    qs_gases_areafrac = area_fraction(7.4, rfs_dense)
+    qs_liquids_areafrac = area_fraction(56.5, rfs_dense)
     # init = area_fraction(19.44, rfs_dense)
     # rho_m = area_fraction(25, rfs_dense)
     ax.plot(qs_gases_areafrac, Pes_dense, label="QS", color='C1')
@@ -103,7 +104,7 @@ if os.path.exists(file):
     ax.plot(pf_liquids_areafrac, Pes_pfs, color='C2', marker='v', ls='')
     # ax.plot(init, 5/rfs_dense, label="Initial density", color='purple', marker='', ls='--')    
     ax.legend()
-    ax.set_title("")
+    ax.set_title(fr"$\epsilon=100$")
     plt.savefig('pfqs_condensation_loweps_phase_diagram.png', dpi=300, bbox_inches='tight')
     plt.close()
 

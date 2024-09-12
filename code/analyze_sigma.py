@@ -8,7 +8,7 @@ from helper import *
 
 matplotlib.rcParams.update({'font.size': 14})
 
-def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
+def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaIK"):
     # input: sequence of rhos.
     # output: plot sigma(rho)
     number = len(vars)
@@ -51,21 +51,23 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
         
         if walls:
             sigmafile = file + '_sigma_data'
-        else:
+            plot_name = 'bulk_vs_walls'
+        elif data == "sigmaIK":
             sigmafile = file + '_sigmaIK/' + file + '_sigmaIK_xx_data'
+            plot_name = 'direct_pressure'
+        elif data == "sigmaA":
+            sigmafile = file + '_sigmaA_data'
+            plot_name = 'active_pressure'
         
-        # sigmafile=file + '_sigmaAxx_data'
-        
-        plot_name = 'direct_pressure'
         try:
-            sigma=np.loadtxt(sigmafile)
+            sigma=np.loadtxt(sigmafile)[200:,:]
         except OSError:
             print(f"No sigma file for {rho}")
             continue
 
         densityfile = file + '_density_data'
         try:
-            density=np.loadtxt(densityfile)
+            density=np.loadtxt(densityfile)[40:,:]
         except OSError:
             print(f"No density file for {rho}")
             continue
@@ -82,7 +84,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
             # doesn't mean anything for pressures, since value in each cell depends on whether there is a particle in that cell or not.
             std_rhos[ind, i] = np.std(density_i)/np.sqrt(N//num_segments)
             stds[ind, i] = np.std(sigma_i)/np.sqrt(L//num_segments)
-        
+
         if walls:
             wallfile = file + "_wall_pressure"
             wall_pressure = np.loadtxt(wallfile)
@@ -159,18 +161,17 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     markersize=7
     capthick=1.5
     if not walls:
-        equi_index = 0 # since (we can verify that) data starts at equilibrium (e.g. t=100)
-        plot_name = 'sigma_convergence'
+        equi_index = 90 # since (we can verify that) data starts at equilibrium (e.g. t=100)
     else:
         equi_index = 20 # since data starts at t=0.
-        plot_name = 'bulk_vs_wall'
     num_snapshots = num_segments - equi_index
+    print(num_snapshots)
     std_density = np.std(rhos_bulk[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
     std_sigma = np.std(sigmas[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
     rho_bulk = np.mean(rhos_bulk[:,equi_index:], axis=-1)
     sigmas_avg = np.mean(sigmas[:,equi_index:], axis=-1)
-    # ax.errorbar(rho_bulk, sigmas_avg, xerr=std_density, yerr=std_sigma, ls='', marker='.', ms=4, label="Bulk pressure")
-    datas, caps, bars1 = ax.errorbar(rho_bulk, sigmas_avg/sigmas_avg, xerr=std_density, yerr=3*std_sigma/sigmas_avg, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Bulk pressure")
+    ax.errorbar(rho_bulk, sigmas_avg, xerr=std_density, yerr=std_sigma, ls='', marker='.', ms=4, label="Bulk pressure")
+    # datas, caps, bars1 = ax.errorbar(rho_bulk, sigmas_avg, xerr=std_density, yerr=3*std_sigma, capsize=capsize, capthick=capthick, ls='', marker='.', ms=markersize, label="Bulk pressure")
 
     if walls:
         space_between_plotted_bars = 0.01
@@ -184,25 +185,28 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False):
     # for bar in (bars1 + bars2 + bars3):
     #     bar.set_alpha(0.5)
         
-    ax.legend()
+    ax.legend(legends)
     ax.set_xlim(left=0)
-    ax.axhline(1, ls='--', color='grey')
+    ax.set_ylim(bottom=0)
+    # ax.axhline(1, ls='--', color='grey')
     # ax.set_ylim(bottom=0)
     ax.set_title("Total pressures")
     plt.savefig(f'{test_name}_{plot_name}.png',  dpi=500, bbox_inches='tight')
+    
+    precision = 6
 
     if walls:
         output = test_name + '_total_pressure'
         with open(output, 'w') as f:
             f.write(f"rho \t \t rho_std \t bulk \t bulk_std \t left_wall \t left_std \t right_wall \t right_std\n")
             for i in range(len(rhos)):
-                f.write(f"{rho_bulk[i]:.4f}\t{std_density[i]:.4f}\t{sigmas_avg[i]:.4f}\t{std_density[i]:.4f}\t{lefts_avg[i]:.4f}\t{std_left[i]:.4f}\t{rights_avg[i]:.4f}\t{std_right[i]:.4f}\n")
+                f.write(f"{rho_bulk[i]:.{precision}f}\t{std_density[i]:.{precision}f}\t{sigmas_avg[i]:.{precision}f}\t{std_sigma[i]:.{precision}f}\t{lefts_avg[i]:.{precision}f}\t{std_left[i]:.{precision}f}\t{rights_avg[i]:.{precision}f}\t{std_right[i]:.{precision}f}\n")
     else:
-        output = test_name + '_sigma_data'
+        output = test_name + f'_{data}_data'
         with open(output, 'w') as f:
             f.write(f"rho \t \t rho_std \t bulk \t bulk_std\n")
             for i in range(len(rhos)):
-                f.write(f"{rho_bulk[i]:.4f}\t{std_density[i]:.4f}\t{sigmas_avg[i]:.4f}\t{std_density[i]:.4f}\n")
+                f.write(f"{rho_bulk[i]:.{precision}f}\t{std_density[i]:.{precision}f}\t{sigmas_avg[i]:.{precision}f}\t{std_sigma[i]:.{precision}f}\n")
 
 if __name__ == "__main__":
     test_name = sys.argv[1]
@@ -210,8 +214,10 @@ if __name__ == "__main__":
     vars = np.array(sys.argv[3].split(),dtype=float)
     num_segments = int(sys.argv[4])
     if len(sys.argv) >= 6:
-        walls = bool(sys.argv[5])
+        walls = bool(int(sys.argv[5]))
+        data = sys.argv[6]
     else:
         walls = False
+        data = "sigmaIK"
 
-    analyze_sigma(test_name, mode, vars, num_segments, walls=walls)
+    analyze_sigma(test_name, mode, vars, num_segments, walls=walls, data=data)

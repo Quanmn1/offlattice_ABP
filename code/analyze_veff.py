@@ -8,6 +8,15 @@ from helper import *
 
 matplotlib.rcParams.update({'font.size': 14})
 
+
+def veff(rho, v, phi):
+    return v*(1-rho/phi)
+
+def Pa_fit(rho, s1, s2, s3, s4):
+    lp = 10
+    v = 5
+    return v * (1-s1*rho+s2*rho**2) * (1-np.tanh(s3*(rho-s4)))/2
+
 def analyze_veff(test_name, mode, vars, num_segments):
     # input: sequence of rhos.
     # output: plot v(rho)
@@ -66,36 +75,38 @@ def analyze_veff(test_name, mode, vars, num_segments):
     v = params['v']
     r_pf = params['r_max_pfap']
     Dr = params['Dr']
+    vs_avg = np.mean(vs, axis=-1)
+    vs_stds = np.std(vs, axis=-1)/np.sqrt(num_segments-1)
 
-    # if mode == "pfap":
-    #     v = params['v']
-    #     r_pf = params['r_max_pfap']
-    #     rho_max = 2/np.sqrt(3)/r_pf/r_pf
-    #     rho_dense = np.linspace(0,1.2,100)
-    #     # v_expecteds = v*(1-rhos/rho_max)
-    #     # ax.plot(rhos, v_expecteds, label=r"$v_0 (1-\rho / \rho_m)$")
-    #     popt, pcov = optimize.curve_fit(linear, rhos, vs, p0=(-v/rho_max, v), sigma=v_stds, absolute_sigma=True)
-    #     ax.plot(rho_dense,linear(rho_dense, *popt), label="Linear fit")
-    #     perr = np.sqrt(np.diag(pcov))
-    #     ax.text(0.6, 0.5, fr"$v = {popt[1]:.2f}\times (1 - \rho/{-popt[1]/popt[0]:.2f})$")
-    # elif mode == "qsap":
-    #     v = params['v']
-    #     phi = params['phi']
-    #     rho_m = params['rho_m']
-    #     lamb = params['lambda']
-    #     rho_dense = np.linspace(0, 60, 1000)
-    #     v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))
-    #     ax.plot(rho_dense, v_expecteds, label='Expected veff')           
-    # elif mode == "pfqs":
-    #     v = params['v']
-    #     phi = params['phi']
-    #     rho_m = params['rho_m']
-    #     lamb = params['lambda']
-    #     r_pf = params['r_max_pfap']
-    #     rho_dense = np.linspace(0, 60, 1000)
-    #     def veff_fit(rho, rho_star):
-    #         return veff_pfqs(rho, rho_star, r_pf, lamb, v, rho_m, phi)
-    #     popt, pcov = optimize.curve_fit(veff_fit, rhos, vs, p0=(1.3), sigma=v_stds, absolute_sigma=True)     
+    if mode == "pfap":
+        v = params['v']
+        r_pf = params['r_max_pfap']
+        rho_max = 2/np.sqrt(3)/r_pf/r_pf
+        rho_dense = np.linspace(0,1.2,100)
+        # v_expecteds = v*(1-rhos/rho_max)
+        # ax.plot(rhos, v_expecteds, label=r"$v_0 (1-\rho / \rho_m)$")
+        popt, pcov = optimize.curve_fit(veff, rhos[:-2], vs_avg[:-2], p0=(-v, rho_max), sigma=vs_stds[:-2], absolute_sigma=True)
+        ax.plot(rho_dense,veff(rho_dense, *popt), label="Linear fit")
+        print(pcov)
+        ax.text(0.6, 0.5, fr"$v = {popt[0]:.2f}\times (1 - \rho/{popt[1]:.2f})$")
+    elif mode == "qsap":
+        v = params['v']
+        phi = params['phi']
+        rho_m = params['rho_m']
+        lamb = params['lambda']
+        rho_dense = np.linspace(0, 60, 1000)
+        v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))
+        ax.plot(rho_dense, v_expecteds, label='Expected veff')           
+    elif mode == "pfqs":
+        v = params['v']
+        phi = params['phi']
+        rho_m = params['rho_m']
+        lamb = params['lambda']
+        r_pf = params['r_max_pfap']
+        rho_dense = np.linspace(0, 60, 1000)
+        def veff_fit(rho, rho_star):
+            return veff_pfqs(rho, rho_star, r_pf, lamb, v, rho_m, phi)
+        popt, pcov = optimize.curve_fit(veff_fit, rhos, vs, p0=(1.3), sigma=v_stds, absolute_sigma=True)     
         # ax.plot(rho_dense,veff_fit(rho_dense, *popt), label="Fit " + fr'$v(\rho)(1-\rho r_f^2/{popt[0]:.2f})$')   
         # v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
         # ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
@@ -112,21 +123,11 @@ def analyze_veff(test_name, mode, vars, num_segments):
     ax.legend(legends)
     plt.savefig(test_name + '_v.png',  dpi=300, bbox_inches='tight')
 
-    vs_avg = np.mean(vs[:,1:], axis=-1)
-    Pa = vs_avg * rhos * v / 2 / Dr
-
     output = test_name + '_veff_data'
     with open(output, 'w') as f:
         f.write(f"rho \t v\n")
         for i in range(len(rhos)):
-            f.write(f"{rhos[i]:.2f} \t {vs_avg[i]:.4f}\n")
-
-    output = test_name + '_Pa_data'
-    with open(output, 'w') as f:
-        f.write(f"rho \t Pa\n")
-        for i in range(len(rhos)):
-            f.write(f"{rhos[i]:.2f} \t {Pa[i]:.4f}\n")
-
+            f.write(f"{rhos[i]:.2f} \t {vs_avg[i]:.4f} \t {vs_stds[i]:.4f}\n")
 
 if __name__ == "__main__":
     test_name = sys.argv[1]

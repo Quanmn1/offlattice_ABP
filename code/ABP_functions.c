@@ -83,7 +83,7 @@ typedef struct param {
     FILE* density_file;
     #endif
     #ifdef STRESS_TENSOR
-    FILE** sigmaIK_files;
+    FILE* sigmaIK_files[4];
     FILE* sigmaA_file;
     FILE* sigma_file;
     FILE* nematic_file;
@@ -506,7 +506,6 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     if (stat(directory, &st) == -1) {
         mkdir(directory, 0777);
     }
-    parameters[0].sigmaIK_files = malloc(4 * sizeof(FILE*));
     sprintf(filename, "%s/%s_sigmaIK_xx", directory, input_parameters.name);
     parameters[0].sigmaIK_files[0] = fopen(filename, write_mode);
 
@@ -739,6 +738,22 @@ double ForceWall(double x, double wall_size, double L, double omega) {
     else return 0;
 }
 
+double Distance2(long i, long j, particle* particles, param parameters) {
+    /*
+    Compute the squared distance between i and j
+    */
+    double dx, dy, dr2;
+    double x = particles[i].x, y = particles[i].y;
+    dx = Min(3, fabs(x-particles[j].x),
+                    fabs(x-particles[j].x+parameters.Lx),
+                    fabs(x-particles[j].x-parameters.Lx));
+    dy = Min(3, fabs(y-particles[j].y),
+                    fabs(y-particles[j].y+parameters.Ly),
+                    fabs(y-particles[j].y-parameters.Ly));
+    dr2 = dx*dx + dy*dy;
+    return dr2;
+}
+
 double BruteForceDensity(double x, double y, particle* particles, param parameters) {
     /*
     Calculate density at point (x,y) using the kernel specified in parameters
@@ -855,7 +870,7 @@ void FreeNeighboringBoxes(box**** neighboring_boxes, int NxBox, int NyBox) {
     free(neighboring_boxes[0]);
 }
 
-void FreeSigma(double**** sigmaIK, int NxBox) {
+void FreeSigmas(double**** sigmaIK, double*** sigmaA, double*** nematic, int NxBox) {
     int bi, bj;
     for ( bi=0; bi<4; bi++) {
         for ( bj=0; bj<NxBox; bj++) {
@@ -864,7 +879,14 @@ void FreeSigma(double**** sigmaIK, int NxBox) {
         free(sigmaIK[0][bi]);
     }
     free(sigmaIK[0]);
+    for (bi = 0; bi < NxBox; bi++)
+        free(sigmaA[0][bi]);
+    free(sigmaA[0]);
+    for (bi = 0; bi < NxBox; bi++)
+        free(nematic[0][bi]);
+    free(nematic[0]);
 }
+
 
 void AddInBox(long index_particle, int bi, int bj, long*** boxes, long** neighbors, particle* particles) {
     long k = boxes[0][bi][bj]; // Save the previous first particle of the box
@@ -1086,7 +1108,7 @@ void MeasureDensityAndForce(long* neighbors, particle* particles, long** boxes, 
         particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;
         particles[i].speed = particles[i].move_x * cos(particles[i].theta) + particles[i].move_y * sin(particles[i].theta);
         #ifdef QSAP_ZERO
-        if ((particles[i].move_x > EPS) || (particles[i].move_y > EPS)) parameters[0].stopped = 0;
+        if ((fabs(particles[i].move_x) > EPS) || (fabs(particles[i].move_y) > EPS) || (particles[i].rho < parameters[0].rho_m)) parameters[0].stopped = 0;
         #endif
     }
 }
@@ -1314,23 +1336,6 @@ void MeasureWallPressure(double* pressure_left, double* pressure_right, long* ne
 
 #endif
 
-double Distance2(long i, long j, particle* particles, param parameters) {
-    /*
-    Compute the squared distance between i and j
-    */
-    double dx, dy, dr2;
-    double x = particles[i].x, y = particles[i].y;
-    dx = Min(3, fabs(x-particles[j].x),
-                    fabs(x-particles[j].x+parameters.Lx),
-                    fabs(x-particles[j].x-parameters.Lx));
-    dy = Min(3, fabs(y-particles[j].y),
-                    fabs(y-particles[j].y+parameters.Ly),
-                    fabs(y-particles[j].y-parameters.Ly));
-    dr2 = dx*dx + dy*dy;
-    return dr2;
-}
-
-
 void GivenInitialConditions(FILE* input, particle* particles, param* parameters, double *t
                         #ifdef HASHING
                         , long*** boxes, long** neighbors
@@ -1428,7 +1433,6 @@ void GivenInitialConditions(FILE* input, particle* particles, param* parameters,
 //     double box_size = parameters.box_size;
 //     int bi, bj;
 //     #endif
-
 //     int N = parameters.N;
 //     for (i=0; i<N; i++){
 //         particles[i].x = 0;
@@ -1462,34 +1466,34 @@ void GivenInitialConditions(FILE* input, particle* particles, param* parameters,
 //     #endif
 //     particles[0].x = 0.4;
 //     particles[0].y = 0.2;
-
+//
 //     particles[1].x = 2.9;
 //     particles[1].y = 2.9;
-
+//
 //     particles[2].x = 1.9;
 //     particles[2].y = 2.2;
-
+//
 //     particles[3].x = 3.9;
 //     particles[3].y = 0.2;
-
+//
 //     particles[4].x = 0.4;
 //     particles[4].y = 3.7;
-
+//
 //     particles[5].x = 1.9;
 //     particles[5].y = 1.7;
-
+//
 //     particles[6].x = 2.4;
 //     particles[6].y = 1.7;
-
+//
 //     particles[7].x = 3.9;
 //     particles[7].y = 3.7;
-
+//
 //     particles[8].x = 2.4;
 //     particles[8].y = 2.2;
-
+//
 //     particles[9].x = 2.7;
 //     particles[9].y = 2.9;
-    
+//    
 //     for (i=0; i<N; i++) {
 //         particles[i].theta = 2*M_PI*genrand64_real3();
 //         particles[i].fx = 0;
@@ -1583,10 +1587,11 @@ void LatticeInitialConditions(particle* particles, param parameters
     int bi, bj;
     #endif
 
-    double rho = parameters.N / Lx / Ly * parameters.interaction_range_pfap * parameters.interaction_range_pfap;
-    double lattice_size = fmin(sqrt(2/sqrt(3)/rho) - 0.01, 1);
+    double rho = parameters.N / Lx / Ly;
+    // the lattice size necessary for producing rho_large
+    double max_lattice_size_liquid = sqrt(2/sqrt(3)/rho) - 0.01;
     // horizontal lattice spacing: should keep finite when r_f is small
-    double a = fmax(0.1, lattice_size * parameters.interaction_range_pfap); 
+    double a = fmin(max_lattice_size_liquid, fmax(0.3, parameters.interaction_range_pfap)); 
     if (a < EPS) a = 0.1 * parameters.interaction_range_qsap;
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
     long N = parameters.N;

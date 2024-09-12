@@ -1,27 +1,27 @@
 #!/bin/bash
 {
-name_exe="abp_pfaps_wca"
+name_exe="abp_pfaps_harmonic"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.00005
-# N=34000
+dt=0.001
+N=34000
 Lx=200
 Ly=200
-rmax=1.122462048
-rho0=$2
-N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
+rmax=1
+# rho0=$2
+# N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
-v=24
-epsilon=1
+v=5
+epsilon=100
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
 # Dr=$(printf %.3f $(echo "scale=4; $v / $Pe / 0.89 + 0.0002" | bc)) # 0.0002 is to make it round up
 # rf=$1
 # Pe=$(echo "scale=4; 5 / $rf"  | bc)
 # Dr=$(echo "scale=4; $v / $Pe" | bc)
-Dr=1.8
+Dr=$2
 # v_min=5
 # v_max=$1
 # rho_m=10
@@ -34,21 +34,20 @@ Dr=1.8
 # rho_large=$3
 # rho_small=$2
 # liquid_fraction=0.5
-final_time=500
+final_time=5000
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=10
+timestep=100
 data_store=$timestep
-update_histo=2
+update_histo=10
 histo_store=$timestep
-start_time=100
+start_time=0
 resume="no"
 terminal_x=1500
 terminal_y=1500
-
-name="$name_all"_"$rho0"
+name="$name_all"_"$Dr"
 {
     time ./$name_exe $dt $N $Lx $Ly $v $epsilon $rmax $Dr $final_time \
     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
@@ -152,9 +151,9 @@ mv "$last_file" "$new_file"
 rm "$dir"/data*
 
 # in HOMOGENEOUS simulations, prepare a file for measurements of bulk density
-file_out="$name"_density_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$name"_density
+# file_out="$name"_density_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$name"_density
 
 # threshold in pressure videos
 max_sigma=600

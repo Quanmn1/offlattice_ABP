@@ -42,6 +42,16 @@ ax.set_ylabel(r'$p(\rho)$')
 # print(popt)
 # ax.plot(rho_dense, Pa_fit(rho_dense, *popt), c=color)
 
+compare = "PhaseDiag-MIPS-Yongfeng"
+data = np.loadtxt(compare, skiprows=1)
+rhos = data[:,0]
+sigmas = data[:,1]
+color = 'C0'
+ax.plot(rhos, sigmas, label=f"Comparison: lp=13.3", marker='.', ls='', c=color, ms=10)
+popt, pcov = optimize.curve_fit(sigma_fit, rhos, sigmas, p0=(0.5,4, 2e-9, 10))
+print(popt)
+ax.plot(rho_dense, sigma_fit(rho_dense, *popt), c=color)
+
 lp=10
 tests = sys.argv[1:]
 i = 0
@@ -66,18 +76,18 @@ while i < len(tests):
     ax.errorbar(rhos[indices], lefts[indices], xerr=3*data[indices,1], yerr=3*data[indices,5], label=f"Left wall, stiffness = {omega}", marker=marker, ls='', ms=2, c=color)
     ax.errorbar(rhos[indices], rights[indices], xerr=3*data[indices,1], yerr=3*data[indices,7], label=f"Right wall, stiffness = {omega}", marker=marker, ls='', ms=2, c=color)
 
-    # popt, pcov = optimize.curve_fit(sigma_fit, rhos, sigmas, p0=(0.5,4, 2e-9, 10))
-    # # print(popt)
-    # ax.plot(rho_dense, sigma_fit(rho_dense, *popt), c=color)
-
-    # data = np.loadtxt(test_name+'_veff_data', skiprows=1)
-    # rhos = data[:,0]
-    # veffs = data[:,1]
-    # Pas = lp*veffs*rhos/2
-    # ax.plot(rhos[indices], Pas[indices], marker=marker, ls='', ms=10, c=color)
-    # popt, pcov = optimize.curve_fit(Pa_fit, rhos, Pas, p0=(1,-0.2,0.4,0.3))
+    popt, pcov = optimize.curve_fit(sigma_fit, rhos, sigmas, p0=(0.5,4, 2e-9, 10))
     # print(popt)
-    # ax.plot(rho_dense, Pa_fit(rho_dense, *popt), c=color)
+    ax.plot(rho_dense, sigma_fit(rho_dense, *popt), c=color)
+
+    data = np.loadtxt(test_name+'_veff_data', skiprows=1)
+    rhos = data[:,0]
+    veffs = data[:,1]
+    Pas = lp*veffs*rhos/2
+    ax.plot(rhos[indices], Pas[indices], marker=marker, ls='', ms=10, c=color)
+    popt, pcov = optimize.curve_fit(Pa_fit, rhos, Pas, p0=(1,-0.2,0.4,0.3))
+    print(popt)
+    ax.plot(rho_dense, Pa_fit(rho_dense, *popt), c=color)
 
 
 ax.set_xlim(left=0)

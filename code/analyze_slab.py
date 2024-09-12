@@ -133,7 +133,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
         # if this function is used to analyze sigmas profile: the data read in need to be coarsened, 
         # since the average is over cell of size 1
         if data != "density":
-            coarsen_number = 5
+            coarsen_number = density_box_size
         else:
             coarsen_number = 1
 
@@ -250,7 +250,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                             heatmap[int(row), :] += np.array(coarsen(line, coarsen_number))/coarsen_number
                         except ValueError:
                             print(f"For {data}, invalid density row {row} at var={var}, t={t}")
-                            print(len(line))
+                            print(np.array(coarsen(line, coarsen_number))/coarsen_number)
                             raise
                         row += 1/coarsen_number
                 else:

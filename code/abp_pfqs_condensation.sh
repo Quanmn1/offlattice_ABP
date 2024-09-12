@@ -5,12 +5,12 @@ name_exe="abp_pfaps_harmonic_qsaps_zero_linear"
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.0001
+dt=0.001
 Lx=20
 Ly=20
 # liquid_fraction=0.5
 rho_m=25
-N=6000
+N=4000
 rmax_pfap=$2
 v=5
 lambda=1
@@ -97,7 +97,7 @@ for i in "$dir"/data*;
 do
     # Read time from the first column of the first line
     Time=$(head -n 1 $i | awk '{printf("%04d",int($1))}')
-    echo "file $i $Time";
+    # echo "file $i $Time";
     gnuplot <<EOF
     set title 'Time $Time'
     set cbrange [0:$rho]
@@ -146,7 +146,7 @@ rm "$dir"/data*
 
 # threshold in pressure videos
 max_sigma=600
-
+echo "sigmaIK"
 dir="$name"_sigmaIK
 rm "$dir"/data*
 

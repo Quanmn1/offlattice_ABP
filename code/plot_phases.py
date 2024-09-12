@@ -60,7 +60,7 @@ if os.path.exists(file):
     rho_liquids_hist = data[:,2]
     vars_hist = data[:,0]
     # Plot binodal from histogram
-    ax.errorbar(rho_gases_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+', label="Homo, "+r"$L_x=L_y=200$")
+    ax.errorbar(rho_gases_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+', label=r"$dt=0.002$")
     ax.errorbar(rho_liquids_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+')
 
 # file = test_name_histo + '_histo_phase_diagram_full_fit'
@@ -73,7 +73,7 @@ if os.path.exists(file):
 #     ax.errorbar(rho_gases_hist, vars_hist, color='red', ls='', ms=marker_size, marker='.', label="Full fit, Homo, "+r"$L_x=L_y=200$")
 #     ax.errorbar(rho_liquids_hist, vars_hist, color='red', ls='', ms=marker_size, marker='.')
 
-file = test_name_slab + '_density_pressure'
+file = test_name_slab + '_histo_phase_diagram'
 if os.path.exists(file):
     data = np.loadtxt(file, skiprows=1)
     skip=5
@@ -81,14 +81,17 @@ if os.path.exists(file):
     rho_liquids_slab = data[:,2]
     vars_slab = data[:,0]
     # Plot binodal from slab
-    ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label="Slab, "+r"$L_x=400,L_y=200$")
+    ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label=r"$dt=0.001$")
     ax.errorbar(rho_liquids_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x')
-
-ax.set_title("Phase diagram for " + r"$\epsilon=100$")
+lp = 5
+ax.axhline(lp/0.154, color="red", label="My estimate of " + r"$r_{12}$")
+ax.axhline(lp/0.16, color="orange", label="GA's estimate of " + r"$r_{12}$")
+ax.axhline(lp/0.226, color="purple", label="Our estimate of " + r"$r_{23}$")
+ax.set_title("Phase diagram for " + r"$\epsilon=50r_f$")
 ax.set_xlim(left=0)
-ax.set_ylim(bottom=0)
+# ax.set_ylim(bottom=0)
 ax.legend()
 # ax.set_xlim(0.0, 1.2)
 # ax.set_ylim(14, 33)
-plt.savefig('pfap_harmonic_compare_phase_diagram_largeeps.png', dpi=300, bbox_inches='tight')
+plt.savefig('pfqs_condensation_loweps_phase_diagram_compare.png', dpi=300, bbox_inches='tight')
 plt.close()

@@ -30,14 +30,16 @@ int main(int argc, char* argv[]) {
     double** sigmaA;
     double** nematic;
     double t;
+
+    #ifdef WALL
     double pressure_left;
     double pressure_right;
-
-#ifdef HASHING
+    #endif
+    #ifdef HASHING
     long** boxes; // first particle in box i, j. malloc in AssignValues
     long* neighbors; // list of neighbors
     box*** neighboring_boxes; // [i][j] is array of neighbors of box i, j. Constant.
-#endif
+    #endif
 
 TRY {
     /*
@@ -145,6 +147,9 @@ TRY {
     int progress = 0;
     double next_report_progress = t;
     double duration = parameters.final_time - t;
+    #ifdef QSAP_ZERO
+    double last_moved = t;
+    #endif
 
     fprintf(parameters.param_file, "Starting simulation!\n");
     fflush(parameters.param_file);
@@ -206,11 +211,17 @@ TRY {
         }
 
         #ifdef QSAP_ZERO
-        if (parameters.stopped == 1) {
-            fprintf(parameters.param_file, "All particles stopped at time %lg!\n", t);
-            fflush(parameters.param_file);
-            StorePositions(t, parameters, particles);
-            break;            
+        if (parameters.stopped == 0) {
+            last_moved = t;
+        } 
+        else {
+            if (t - last_moved > 1) {
+                fprintf(parameters.param_file, "All particles stopped at time %lg!\n", t);
+                fflush(parameters.param_file);
+                // StorePositions(t, parameters, particles);
+                // break;    
+                parameters.dt = 1;
+            }        
         }
         #endif
     }
@@ -235,16 +246,19 @@ CATCH
     FreeNeighboringBoxes(&neighboring_boxes, parameters.NxBox, parameters.NyBox);
     #ifdef DENSITY_HISTOGRAM
     fclose(parameters.histogram_file);
-    FreeDensity(&density_matrix, parameters.number_of_boxes_x);
-    fclose(parameters.density_file);
     free(density_histogram);
+    fclose(parameters.density_file);
+    FreeDensity(&density_matrix, parameters.number_of_boxes_x);
     #endif
     #ifdef STRESS_TENSOR
-    for (int i=0; i<4; i++) {
-        fclose(parameters.sigmaIK_files[i]);
-    }
-    free(parameters.sigmaIK_files);
-    FreeSigma(&sigmaIK, parameters.NxBox);
+    for (int i=0; i<4; i++) fclose(parameters.sigmaIK_files[i]);
+    fclose(parameters.sigmaA_file);
+    fclose(parameters.nematic_file);
+    fclose(parameters.sigma_file);
+    #ifdef WALL
+    fclose(parameters.wall_pressure_file);
+    #endif
+    FreeSigmas(&sigmaIK, &sigmaA, &nematic, parameters.NxBox);
     #endif
     fflush(stderr);
     fclose(stderr);
