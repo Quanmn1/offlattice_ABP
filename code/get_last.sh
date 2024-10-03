@@ -1,10 +1,10 @@
 #!/bin/bash
 
-name_all="pfaps_test46_harmonic_yongfeng"
-Dr=$1
-timestep=100
+name_all="pfaps_qsaps_test16_harmonic_metastability"
+rf=0.07
+timestep=10
 
-name="$name_all"_"$Dr"
+name="$name_all"_"$rf"
 
 file="$name"_data
 dir="$name"_video

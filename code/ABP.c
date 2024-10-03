@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
     double** density_matrix; // store the density at each position
     double*** sigmaIK;
     double** sigmaA;
+    double** sigmaAprime;
     double** nematic;
     double t;
 
@@ -49,12 +50,13 @@ TRY {
     /*
     Allocate memory to the particle array; read file name and calculate parameters
     */
-    AssignValues(&parameters, input_parameters, &particles, &density_histogram, &density_matrix, &sigmaIK, &sigmaA, &nematic);
+    AssignValues(&parameters, input_parameters, &particles, &density_histogram, &density_matrix, &sigmaIK, &sigmaA, &sigmaAprime, &nematic);
+    
+    StoreInputParameters(argc, argv, parameters, input_parameters, command_line_output);
+
     /*
     Write the params into a file
     */
-    StoreInputParameters(argc, argv, parameters, input_parameters, command_line_output);
-
 #ifdef HASHING
     // Allocate and initialize all empty boxes
     ConstructBoxes(parameters, &boxes); 
@@ -129,9 +131,9 @@ TRY {
         StorePositions(t, parameters, particles);
         #ifdef STRESS_TENSOR
         MeasureSigmaIK(sigmaIK, neighbors, particles, boxes, parameters, neighboring_boxes);
-        MeasureSigmaActive(sigmaA, neighbors, particles, boxes, parameters);
+        MeasureSigmaActive(sigmaA, sigmaAprime, neighbors, particles, boxes, parameters);
         MeasureNematic(nematic, neighbors, particles, boxes, parameters);
-        StoreStressTensor(t, parameters, sigmaIK, sigmaA, nematic);
+        StoreStressTensor(t, parameters, sigmaIK, sigmaA, sigmaAprime, nematic);
         #ifdef WALL
         MeasureWallPressure(&pressure_left, &pressure_right, neighbors, particles, boxes, parameters);
         StoreWallPressure(t, parameters, pressure_left, pressure_right);
@@ -173,9 +175,9 @@ TRY {
             StorePositions(t, parameters, particles);
             #ifdef STRESS_TENSOR
             MeasureSigmaIK(sigmaIK, neighbors, particles, boxes, parameters, neighboring_boxes);
-            MeasureSigmaActive(sigmaA, neighbors, particles, boxes, parameters);
+            MeasureSigmaActive(sigmaA, sigmaAprime, neighbors, particles, boxes, parameters);
             MeasureNematic(nematic, neighbors, particles, boxes, parameters);
-            StoreStressTensor(t, parameters, sigmaIK, sigmaA, nematic);
+            StoreStressTensor(t, parameters, sigmaIK, sigmaA, sigmaAprime, nematic);
             #ifdef WALL
             MeasureWallPressure(&pressure_left, &pressure_right, neighbors, particles, boxes, parameters);
             StoreWallPressure(t, parameters, pressure_left, pressure_right);
@@ -253,12 +255,13 @@ CATCH
     #ifdef STRESS_TENSOR
     for (int i=0; i<4; i++) fclose(parameters.sigmaIK_files[i]);
     fclose(parameters.sigmaA_file);
+    fclose(parameters.sigmaAprime_file);
     fclose(parameters.nematic_file);
     fclose(parameters.sigma_file);
     #ifdef WALL
     fclose(parameters.wall_pressure_file);
     #endif
-    FreeSigmas(&sigmaIK, &sigmaA, &nematic, parameters.NxBox);
+    FreeSigmas(&sigmaIK, &sigmaA, &sigmaAprime, &nematic, parameters.NxBox);
     #endif
     fflush(stderr);
     fclose(stderr);

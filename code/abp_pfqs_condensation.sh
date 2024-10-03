@@ -5,7 +5,7 @@ name_exe="abp_pfaps_harmonic_qsaps_zero_linear"
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.001
+dt=0.0001
 Lx=20
 Ly=20
 # liquid_fraction=0.5
@@ -27,7 +27,7 @@ epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
 # rho_rf2=0.45
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
 Dr=1
-final_time=500
+final_time=1000
 density_box_size=2
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=10

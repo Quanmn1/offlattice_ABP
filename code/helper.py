@@ -66,6 +66,26 @@ def coarsen(array, num_combined, binwidth=1, normalize=False):
     else:
         return result
     
+def correlation(x, y):
+    """
+    Calculate correlation function between x and y using manual sliding.
+    x and y has the same length N. Output will be of length 2N.
+    """
+    pass
+
+def auto_correlation(p):
+    """
+    Calculate auto-correlation function of x using manual sliding.
+    x and output will be of length N.
+    """
+    N = len(p)
+    auto_corr = np.zeros(N)
+    for i in range(N):
+        for j in range(N-i):
+            auto_corr[i] += p[j] * p[j+i] / (N-i)
+    return auto_corr
+
+
 def nonzero(first, *arrs):
     ind = np.nonzero(first)
     return [first[ind]] + [arr[ind] for arr in arrs]

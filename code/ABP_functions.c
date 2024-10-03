@@ -85,6 +85,7 @@ typedef struct param {
     #ifdef STRESS_TENSOR
     FILE* sigmaIK_files[4];
     FILE* sigmaA_file;
+    FILE* sigmaAprime_file;
     FILE* sigma_file;
     FILE* nematic_file;
     #endif
@@ -368,7 +369,7 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 }
 
 void AssignValues(param* parameters, inputparam input_parameters, particle** particles, 
-                    double** density_histogram, double*** density_matrix, double**** sigmaIK, double*** sigmaA, double*** nematic){
+                    double** density_histogram, double*** density_matrix, double**** sigmaIK, double*** sigmaA, double*** sigmaAprime, double*** nematic){
     /*
     This function allocates memory to the particles array, and calculate some parameters
     */
@@ -560,6 +561,24 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
         }
     }
 
+    sprintf(filename, "%s_sigmaAprimexx", input_parameters.name);
+    parameters[0].sigmaAprime_file = fopen(filename, write_mode);
+
+    sigmaAprime[0] = malloc(parameters[0].NxBox * sizeof(double*));
+    if (sigmaAprime[0] == NULL) {
+        fprintf(stderr, "Memory allocation for sigmaAprime failed.\n");
+        fflush(stderr);
+        ERROR(3);
+    }
+    for (int i=0;i < parameters[0].NxBox; i++) {
+        sigmaAprime[0][i] = malloc(parameters[0].NyBox * sizeof(double));
+        if (sigmaAprime[0][i] == NULL) {
+            fprintf(stderr, "Memory allocation for sigmaAprime failed.\n");
+            fflush(stderr);
+            ERROR(3);
+        }
+    }
+
     // nematic tensor Qxx
     sprintf(filename, "%s_Qxx", input_parameters.name);
     parameters[0].nematic_file = fopen(filename, write_mode);
@@ -607,17 +626,19 @@ void StoreInputParameters(int argc, char* argv[], param parameters, inputparam i
     /*
     This function writes the parameters to a file of name name_param
     */
+    double rho = parameters.N/parameters.Lx/parameters.Ly;
     fprintf(parameters.param_file,"%s\n", command_line_output);
+
     for(int i=0;i<argc;i++)
         fprintf(parameters.param_file, "%s ", argv[i]);
-    
+
     fprintf(parameters.param_file, "\n");
 
     fprintf(parameters.param_file, "%ld\n", parameters.N);
 
-    double rho = parameters.N/parameters.Lx/parameters.Ly;
+
     #ifdef PFAP
-    double pe = parameters.v/parameters.Dr/(parameters.interaction_range_pfap*0.89);
+    double pe = parameters.v/parameters.Dr/(parameters.interaction_range_pfap);
     fprintf(parameters.param_file, "Density = %lf; Pe = %lf \n", rho, pe);
     #elif defined QSAP_TANH
     double v_ratio = parameters.v_max/parameters.v_min;
@@ -665,6 +686,13 @@ double DensityDependentSpeed2(double rho, double rho_m, double v, double lambda,
     Give the density-dependent speed (formula used by Gianmarco)
     */
     return v*exp(-lambda*tanh((rho-rho_m)/phi));
+}
+
+double DerivDensityDependentSpeed2(double rho, double rho_m, double v, double lambda, double phi){
+    /*
+    Give the derivative of the density-dependent speed (formula used by Gianmarco)
+    */
+    return -lambda/phi/cosh((rho-rho_m)/phi)/cosh((rho-rho_m)/phi) * DensityDependentSpeed2(rho, rho_m, v, lambda, phi);
 }
 
 double DensityDependentSpeed3(double rho, double rho_m, double v, double lambda, double phi) {
@@ -870,7 +898,7 @@ void FreeNeighboringBoxes(box**** neighboring_boxes, int NxBox, int NyBox) {
     free(neighboring_boxes[0]);
 }
 
-void FreeSigmas(double**** sigmaIK, double*** sigmaA, double*** nematic, int NxBox) {
+void FreeSigmas(double**** sigmaIK, double*** sigmaA, double *** sigmaAprime, double*** nematic, int NxBox) {
     int bi, bj;
     for ( bi=0; bi<4; bi++) {
         for ( bj=0; bj<NxBox; bj++) {
@@ -882,6 +910,9 @@ void FreeSigmas(double**** sigmaIK, double*** sigmaA, double*** nematic, int NxB
     for (bi = 0; bi < NxBox; bi++)
         free(sigmaA[0][bi]);
     free(sigmaA[0]);
+    for (bi = 0; bi < NxBox; bi++)
+        free(sigmaAprime[0][bi]);
+    free(sigmaAprime[0]);
     for (bi = 0; bi < NxBox; bi++)
         free(nematic[0][bi]);
     free(nematic[0]);
@@ -1246,7 +1277,7 @@ void MeasureSigmaIK(double*** sigmaIK, long* neighbors, particle* particles, lon
 }
 
 // compute these sigmas in bigger boxes
-void MeasureSigmaActive(double** sigmaA, long* neighbors, particle* particles, long** boxes, param parameters) {
+void MeasureSigmaActive(double** sigmaA, double** sigmaAprime, long* neighbors, particle* particles, long** boxes, param parameters) {
     /*
     Measure the average active stress tensor in each box by looking at particles in that box 
     and compute their contributions.
@@ -1255,16 +1286,24 @@ void MeasureSigmaActive(double** sigmaA, long* neighbors, particle* particles, l
     long i;
     double r0 = parameters.box_size;
     double Dr = parameters.Dr;
+    double v0 = parameters.v;
+    double phi = parameters.phi;
+    double lambda = parameters.lambda; 
+    double rho_m = parameters.rho_m;
     int NxBox = parameters.NxBox;
     int NyBox = parameters.NyBox;
     // Loop through all boxes
     for (bi = 0; bi<NxBox; bi++) {
         for (bj = 0; bj<NyBox; bj++) {
             sigmaA[bi][bj] = 0;
+            sigmaAprime[bi][bj] = 0;
             // First particle of box
             i = boxes[bi][bj];
             while (i != -1) {
-                sigmaA[bi][bj] += particles[i].move_x * cos(particles[i].theta) * particles[i].v / Dr / (r0*r0);
+                sigmaA[bi][bj] += (particles[i].move_x * cos(particles[i].theta)) * particles[i].v / Dr / (r0*r0);
+                #if defined(QSAP) && defined(PFAP)
+                sigmaAprime[bi][bj] += (particles[i].move_x * cos(particles[i].theta)) * DerivDensityDependentSpeed2(particles[i].rho, rho_m, v0, lambda, phi)  / Dr / (r0*r0);
+                #endif
                 // go to next particle
                 i = neighbors[2*i+1];
             }
@@ -2097,7 +2136,7 @@ void StoreDensity(double t, param parameters, double* density_histogram, double*
 #endif
 
 #ifdef STRESS_TENSOR
-void StoreStressTensor(double t, param parameters, double*** sigmaIK, double** sigmaA, double** nematic) {
+void StoreStressTensor(double t, param parameters, double*** sigmaIK, double** sigmaA, double** sigmaAprime, double** nematic) {
     /*
     Store each component of the 2D stress tensor sigmaIK into four files in the folder opened.
     Called every store_position, similar to v_eff
@@ -2124,6 +2163,16 @@ void StoreStressTensor(double t, param parameters, double*** sigmaIK, double** s
     }
     fprintf(parameters.sigmaA_file, "\n");
     fflush(parameters.sigmaA_file);
+
+    fprintf(parameters.sigmaAprime_file, "%lf\n", t);
+    for(j = parameters.NyBox - 1; j >= 0; j--) {
+        for(i = 0 ; i < parameters.NxBox; i++) {
+            fprintf(parameters.sigmaAprime_file, "%lf\t", sigmaAprime[i][j]);
+        }
+        fprintf(parameters.sigmaAprime_file, "\n");
+    }
+    fprintf(parameters.sigmaAprime_file, "\n");
+    fflush(parameters.sigmaAprime_file);
 
     fprintf(parameters.nematic_file, "%lf\n", t);
     for(j = parameters.NyBox - 1; j >= 0; j--) {

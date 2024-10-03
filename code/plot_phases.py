@@ -16,19 +16,21 @@ if mode == "qsap":
     file = "PhaseDiag-MIPS-QSAP.csv"
 elif mode == "pfap":
     pad = 3
-    param_label = r"$l_p/r_f$"
+    param_label = r"$\ell_p/r_f$"
     # file = "PhaseDiag-MIPS-Gianma.csv"
     file = "PhaseDiag-MIPS-Yongfeng"
-# file_anal = "phase_diag_qsap_rmap"
 
-marker_size = 10
+file_anal = "pfap_harmonic_local"
+file_anal2 = "pfap_harmonic_rmap"
+
+marker_size = 5
 
 fig, ax = plt.subplots(figsize = (6,6))
 ax.set_ylabel(param_label)
 ax.set_xlabel('Density')
 
 test_name_histo = sys.argv[2]
-test_name_slab = sys.argv[3]
+# test_name_slab = sys.argv[2]
 
 # data = np.loadtxt(file, delimiter=' ', skiprows=1)
 # skip=0
@@ -42,16 +44,29 @@ test_name_slab = sys.argv[3]
 # ax.errorbar(rho_gases_prev, vars_prev, xerr=rho_gases_prev_std, color='green', ms=marker_size, marker='.', label="Yongfeng's")
 # ax.errorbar(rho_liquids_prev, vars_prev, xerr=rho_liquid_prev_std, color='green', ms=marker_size, marker='.')
 
-# data = np.loadtxt(file_anal, skiprows=1)
-# rho_gases_prev = data[:, -2]*50
-# rho_liquids_prev = data[:,-1]*50
-# vars_prev = data[:,-3]
-# if mode == 'pfap':
-#     vars_prev = data[:,-4] / vars_prev * np.float_power(2, 1/6)
-# # Plot binodal from r mapping
-# ax.errorbar(rho_gases_prev, vars_prev, color='grey', ls='-', ms=marker_size, marker='', label="R mapping")
-# ax.errorbar(rho_liquids_prev, vars_prev, color='grey', ls='-', ms=marker_size, marker='')
+data = np.loadtxt(file_anal, skiprows=1)
+skip_high = 0
+skip_low = 0
+rho_gases_prev = data[skip_high:, 1]
+rho_liquids_prev = data[skip_high:,2]
+vars_prev = data[skip_high:,0]
+if mode == 'pfap':
+    vars_prev = 5 / vars_prev
+# Plot binodal from r mapping
+ax.errorbar(rho_gases_prev, vars_prev, color='grey', ls='-', ms=marker_size, marker='', label="Local theory")
+ax.errorbar(rho_liquids_prev, vars_prev, color='grey', ls='-', ms=marker_size, marker='')
 
+data = np.loadtxt(file_anal2, skiprows=1)
+skip_high = 0
+skip_low = 0
+rho_gases_prev = data[skip_high:, 1]
+rho_liquids_prev = data[skip_high:,2]
+vars_prev = data[skip_high:,0]
+if mode == 'pfap':
+    vars_prev = 5 / vars_prev
+# Plot binodal from r mapping
+ax.errorbar(rho_gases_prev, vars_prev, color='orange', ls='-', ms=marker_size, marker='', label="R mapping")
+ax.errorbar(rho_liquids_prev, vars_prev, color='orange', ls='-', ms=marker_size, marker='')
 
 file = test_name_histo + '_histo_phase_diagram'
 if os.path.exists(file):
@@ -60,8 +75,8 @@ if os.path.exists(file):
     rho_liquids_hist = data[:,2]
     vars_hist = data[:,0]
     # Plot binodal from histogram
-    ax.errorbar(rho_gases_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+', label=r"$dt=0.002$")
-    ax.errorbar(rho_liquids_hist, vars_hist, color='brown', ls='', ms=marker_size, marker='+')
+    ax.errorbar(rho_gases_hist, vars_hist, color='purple', ls='', ms=marker_size, marker='x', label="Numerics")
+    ax.errorbar(rho_liquids_hist, vars_hist, color='purple', ls='', ms=marker_size, marker='x')
 
 # file = test_name_histo + '_histo_phase_diagram_full_fit'
 # if os.path.exists(file):
@@ -73,25 +88,25 @@ if os.path.exists(file):
 #     ax.errorbar(rho_gases_hist, vars_hist, color='red', ls='', ms=marker_size, marker='.', label="Full fit, Homo, "+r"$L_x=L_y=200$")
 #     ax.errorbar(rho_liquids_hist, vars_hist, color='red', ls='', ms=marker_size, marker='.')
 
-file = test_name_slab + '_histo_phase_diagram'
-if os.path.exists(file):
-    data = np.loadtxt(file, skiprows=1)
-    skip=5
-    rho_gases_slab = data[:, 1]
-    rho_liquids_slab = data[:,2]
-    vars_slab = data[:,0]
-    # Plot binodal from slab
-    ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label=r"$dt=0.001$")
-    ax.errorbar(rho_liquids_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x')
+# file = test_name_slab + '_phase_diagram'
+# if os.path.exists(file):
+#     data = np.loadtxt(file, skiprows=1)
+#     skip=5
+#     rho_gases_slab = data[:, 1]
+#     rho_liquids_slab = data[:,2]
+#     vars_slab = data[:,0]
+#     # Plot binodal from slab
+#     ax.errorbar(rho_gases_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x', label="Numerics")
+#     ax.errorbar(rho_liquids_slab, vars_slab, color='purple', ls='', ms=marker_size, marker='x')
 lp = 5
-ax.axhline(lp/0.154, color="red", label="My estimate of " + r"$r_{12}$")
-ax.axhline(lp/0.16, color="orange", label="GA's estimate of " + r"$r_{12}$")
-ax.axhline(lp/0.226, color="purple", label="Our estimate of " + r"$r_{23}$")
-ax.set_title("Phase diagram for " + r"$\epsilon=50r_f$")
+# ax.axhline(lp/0.154, color="red", label="My estimate of " + r"$r_{12}$")
+# ax.axhline(lp/0.152, color="orange", label="Prediction of phase boundary")
+# ax.axhline(lp/0.217, color="orange")
+ax.set_title("PFAPs: theory and numerics")
 ax.set_xlim(left=0)
-# ax.set_ylim(bottom=0)
-ax.legend()
+ax.set_ylim(bottom=0)
+ax.legend(loc=(0.05, 0.75))
 # ax.set_xlim(0.0, 1.2)
 # ax.set_ylim(14, 33)
-plt.savefig('pfqs_condensation_loweps_phase_diagram_compare.png', dpi=300, bbox_inches='tight')
+plt.savefig('pfap_harmonic_phase_diagram.png', dpi=300, bbox_inches='tight')
 plt.close()

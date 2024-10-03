@@ -60,7 +60,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
             plot_name = 'active_pressure'
         
         try:
-            sigma=np.loadtxt(sigmafile)[200:,:]
+            sigma=np.loadtxt(sigmafile)[200:,:] # discard the measurement at the start, otherwise we can't divide up into even intervals
         except OSError:
             print(f"No sigma file for {rho}")
             continue
@@ -74,6 +74,8 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
 
         L = sigma.shape[0]
         N = density.shape[0]
+        # print(f"Sigma size {L}")
+        # print(f"Density size {N}")
         for i in range(num_segments):
             sigma_i = sigma[L*i//num_segments:L*(i+1)//num_segments, bulk_left:bulk_right]
             density_i = density[N*i//num_segments:N*(i+1)//num_segments, bulk_left//density_box_size:bulk_right//density_box_size]
@@ -106,14 +108,6 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
         # sigmas[ind] = np.average(data)
         # sigma_stds[ind] = np.std(data)/np.sqrt(N)
 
-    # plot sigma vs rho
-    fig, ax = plt.subplots()
-    ax.set_xlabel(r'$\rho$')
-    ax.set_ylabel(r'$p/p_{bulk}$')
-    final_time = params["final_time"]
-    start_time = params["next_store_time"]
-    legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
-
     """
     Fit functions
     """
@@ -145,13 +139,43 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     #     rho_dense = np.linspace(0, 60, 1000)
     #     v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
     #     ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
-    
+
+    if not walls:
+        equi_index = 190 # since (we can verify that) data starts at equilibrium (e.g. t=100)
+    else:
+        equi_index = 20 # since data starts at t=0.
+
+    """
+    Checking whether the measurements are independent
+    """
+    for ind in range(number):
+        rho = rhos[ind]
+        sigma_ind = sigmas[ind, equi_index:]
+        # average pressure
+        p = np.average(sigma_ind)
+        print("[" + ", ".join(map(str, sigma_ind-p)) + "]")        # measure the auto-correlation function
+        variance = np.sum((sigma_ind - p)**2) / len(sigma_ind)
+        auto_corr = auto_correlation(sigma_ind-p) / variance
+        plt.plot(auto_corr)
+        # print(f"rho={rho}")
+        # print(auto_corr)
+        plt.savefig(f"{test_name}_{rho}vspread{data}.png")
+        plt.close()
+
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel(r'$\rho$')
+    ax.set_ylabel(r'$p/p_{bulk}$')
+    final_time = params["final_time"]
+    start_time = params["next_store_time"]
+    legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
+
     """
     Checking whether the system has equilibriated at the beginning of the recorded data
     """
     # for i in range(num_segments):
     #     ax.errorbar(rhos_bulk[:,i], sigmas[:,i], ls='', marker='.')
-    
+
     """
     After ascertaining that it has equilibriated:
     Plot averages and stds. Each segment is only one snapshot. 
@@ -160,12 +184,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     capsize=4
     markersize=7
     capthick=1.5
-    if not walls:
-        equi_index = 90 # since (we can verify that) data starts at equilibrium (e.g. t=100)
-    else:
-        equi_index = 20 # since data starts at t=0.
     num_snapshots = num_segments - equi_index
-    print(num_snapshots)
     std_density = np.std(rhos_bulk[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
     std_sigma = np.std(sigmas[:,equi_index:], axis=-1)/np.sqrt(num_snapshots)
     rho_bulk = np.mean(rhos_bulk[:,equi_index:], axis=-1)

@@ -77,7 +77,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
     rho_liquids_std = np.full(number, np.nan)
 
     for (test_num, var) in enumerate(vars):
-        name = test_name + f'_{var:.2f}'
+        name = test_name + f'_{var:.3f}'
         param_file = name + '_param'
         histogram_file = name + '_histogram'
 
@@ -127,7 +127,8 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
             max_number = int(params["rho_m"] * density_box_area * 10)
         elif mode == "pfqs":
             max_number = int(density_box_area * 4 / box_size_pfap**2)
-        segments = np.linspace(1000,tf,num_segments+1)
+
+        segments = np.linspace(0,tf,num_segments+1)
 
         histogram_folder = name+'_histogram_folder'
         if not os.path.isdir(histogram_folder):
@@ -144,7 +145,13 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
 
         with open(histogram_file, 'r') as f:
             for raw_line in f:
-                line = [float(a) for a in raw_line.split()]
+                try:
+                    line = [float(a) for a in raw_line.split()]
+                except:
+                    print(line)
+                    print(t)
+                    print(histogram_file)
+                    raise
                 if len(line) == 1:
                     t = line[0]
                     row = 0
@@ -167,7 +174,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
                                 gas = densities_fit[np.argmax(histogram_fit[:divider])]
                                 liquid = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                                 max_density = densities_fit[-1]
-                                width = max(max_density - liquid, 2)
+                                width = 10
                                 gas_indices = (densities_fit > gas - width) & (densities_fit < gas + width)
                                 liquid_indices = (densities_fit > liquid - width) & (densities_fit < liquid + width)
                                 # popt, pcov, chisquare, dof = fit_gausses(densities_fit[indices], histogram_fit[indices], histogram_std_fit[indices], params, gas, liquid)
@@ -203,7 +210,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
                             #     ax.text(0.4,0.9, 'Invalid fit', transform=ax.transAxes)
                                 # ax.text(0.4,0.8, f'$\chi^2 / dof = {chisquare:.2f}/{dof}$', transform=ax.transAxes)
                         elif fit == 'max':
-                            divider = np.searchsorted(densities_fit, params['rho']*1.5)
+                            divider = np.searchsorted(densities_fit, params['rho'])
                             rho_gases[test_num] = densities_fit[np.argmax(histogram_fit[:divider])]
                             rho_liquids[test_num] = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                             ax.set_title(f'$t={segments[count-1]}-{segments[count]}, peaks: \\rho_g = {rho_gases[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}$')
@@ -232,6 +239,9 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
     elif mode == "pfqs":
         Pes = v/Dr/vars
         vars = Pes
+
+    # print(rho_gases)
+    # print(rho_liquids)
 
     with open(test_name + '_histo_phase_diagram', 'w') as f:
         f.write(f"{param_label} \t rho_gas \t rho_liquid \t rho_gas_std \t rho_liquid_std \n")
