@@ -4,11 +4,12 @@ name_exe="abp_pfaps_harmonic_qsaps_exp"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 name_all=$1
-dt=0.00005
-Lx=20
-Ly=20
+dt=0.0001
+Lx=10
+Ly=10
 v=5
-Dr=5
+Dr=1
+# N=32000
 # lp=$(echo "scale=0; $v / $Dr"  | bc)
 # lprf=$2
 # rmax_pfap=$(printf "%.2f" "$(echo "scale=4; $lp / $lprf" | bc)")
@@ -16,10 +17,10 @@ Dr=5
 # rho_small=$3
 # liquid_fraction=0.5
 rho_m=25
-rho0=$2
+rho0=0.5
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
-rmax_pfap=0.08
-lambda=0.5
+rmax_pfap=$2
+lambda=1
 phi=10
 rmax_qsap=1
 epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
@@ -31,26 +32,26 @@ epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
 # rho_rf2=0.7
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
 final_time=1000
-density_box_size=2
+density_box_size=1
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=10
 data_store=$timestep
-update_histo=2
+update_histo=1
 histo_store=$timestep
 start_time=0
-resume="no"
+resume="yes"
 terminal_x=1500
 terminal_y=1500
 
-name="$name_all"_"$rho0"
+name="$name_all"_"$rmax_pfap"
 
-{
-    time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-    # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-} \
-2>> "$name"_param
+# {
+#     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+# } \
+# 2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
@@ -72,9 +73,9 @@ rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
 echo "rho max is $rho"
 
 # in HOMOGENEOUS simulations, prepare a file for measurements of v(rho)
-file_out="$name"_v
-rm $file_out
-awk 'NF>2 {print $4,$5  >> "'"$file_out"'"}' "$file"
+# file_out="$name"_v
+# rm $file_out
+# awk 'NF>2 {print $4,$5  >> "'"$file_out"'"}' "$file"
 
 # make files for each time snapshots for plotting
 # i is the marker of the file
@@ -150,9 +151,9 @@ mv "$last_file" "$new_file"
 rm "$dir"/data*
 
 # in HOMOGENEOUS simulations, prepare a file for measurements of bulk density
-file_out="$name"_density_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$name"_density
+# file_out="$name"_density_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$name"_density
 
 # threshold in pressure videos
 max_sigma=600
@@ -164,9 +165,9 @@ rm "$dir"/data*
 for file in "$dir"/"$dir"_??;
 do
 # in HOMOGENEOUS simulations, prepare a file for measurements of sigma_IK
-file_out="$file"_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
+# file_out="$file"_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
 
 # plot sigmaIK
 awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
@@ -216,9 +217,9 @@ for file in "$name"_sigmaAxx "$name"_sigma "$name"_Qxx;
 do
 echo "$file"
 # in HOMOGENEOUS simulations, prepare a file for measurements of sigma
-file_out="$file"_data
-rm $file_out
-awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
+# file_out="$file"_data
+# rm $file_out
+# awk 'NF>2 {print $0  >> "'"$file_out"'"}' "$file"
 
 awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}
 NF==1  {if(iread==1) {i+=1;iread=0;t+=t_increment;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i);print $1 >> file_out}}

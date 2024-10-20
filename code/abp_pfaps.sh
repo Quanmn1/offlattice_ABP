@@ -5,7 +5,7 @@ name_exe="abp_pfaps_harmonic"
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.0002
+dt=0.001
 # N=34000
 Lx=200
 Ly=200
@@ -13,7 +13,7 @@ rmax=1
 rho0=$2
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
-v=5
+v=1.8393972058572117
 epsilon=100
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
@@ -21,7 +21,7 @@ epsilon=100
 # rf=$1
 # Pe=$(echo "scale=4; 5 / $rf"  | bc)
 # Dr=$(echo "scale=4; $v / $Pe" | bc)
-Dr=0.5
+Dr=0.2
 # v_min=5
 # v_max=$1
 # rho_m=10
@@ -34,17 +34,17 @@ Dr=0.5
 # rho_large=$3
 # rho_small=$2
 # liquid_fraction=0.5
-final_time=4000
+final_time=2000
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=10
+timestep=20
 data_store=$timestep
-update_histo=2
+update_histo=5
 histo_store=$timestep
-start_time=100
-resume="yes"
+start_time=0
+resume="no"
 terminal_x=1500
 terminal_y=1500
 name="$name_all"_"$rho0"

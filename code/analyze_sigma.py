@@ -18,7 +18,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
         params, N = read_param(file + '_param')
         box_size = np.ceil(params['r_max_pfap'])
     else:
-        file = test_name + f'_{rhos[0]:.0f}'
+        file = test_name + f'_{rhos[0]:.1f}'
         params, N = read_param(file + '_param')
         box_size = params['r_max_qsap']
 
@@ -45,7 +45,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     std_rhos = np.zeros((number, num_segments))
     for (ind,rho) in enumerate(rhos):
         if mode == "pfap":
-            file = test_name + f'_{rho}'
+            file = test_name + f'_{rho:.1f}'
         else:
             file = test_name + f'_{rho:.0f}'
         
@@ -56,7 +56,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
             sigmafile = file + '_sigmaIK/' + file + '_sigmaIK_xx_data'
             plot_name = 'direct_pressure'
         elif data == "sigmaA":
-            sigmafile = file + '_sigmaA_data'
+            sigmafile = file + '_sigmaAxx_data'
             plot_name = 'active_pressure'
         
         try:
@@ -141,7 +141,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     #     ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
 
     if not walls:
-        equi_index = 190 # since (we can verify that) data starts at equilibrium (e.g. t=100)
+        equi_index = 20 # since (we can verify that) data starts at equilibrium (e.g. t=100)
     else:
         equi_index = 20 # since data starts at t=0.
 

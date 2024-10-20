@@ -120,7 +120,7 @@ def analyze_veff(test_name, mode, vars, num_segments):
     final_time = params["final_time"]
     start_time = params["next_store_time"]
     legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
-    ax.legend(legends)
+    ax.legend(["Fit"] + legends)
     plt.savefig(test_name + '_v.png',  dpi=300, bbox_inches='tight')
 
     output = test_name + '_veff_data'

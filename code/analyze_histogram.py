@@ -69,7 +69,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
     elif mode == "pfqs":
         # pad = 2
         param_label = r"$l_p/r_f$"
-        num_combined = 1
+        num_combined = 2
     # vars = np.linspace(start, end, number)
     rho_gases = np.zeros(number)
     rho_liquids = np.zeros(number)
@@ -128,7 +128,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
         elif mode == "pfqs":
             max_number = int(density_box_area * 4 / box_size_pfap**2)
 
-        segments = np.linspace(0,tf,num_segments+1)
+        segments = np.linspace(0, tf, num_segments+1)
 
         histogram_folder = name+'_histogram_folder'
         if not os.path.isdir(histogram_folder):
@@ -174,9 +174,9 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
                                 gas = densities_fit[np.argmax(histogram_fit[:divider])]
                                 liquid = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                                 max_density = densities_fit[-1]
-                                width = 10
-                                gas_indices = (densities_fit > gas - width) & (densities_fit < gas + width)
-                                liquid_indices = (densities_fit > liquid - width) & (densities_fit < liquid + width)
+                                width = min(max_density - liquid, gas)
+                                gas_indices = (densities_fit >= gas - width) & (densities_fit <= gas + width)
+                                liquid_indices = (densities_fit >= liquid - width) & (densities_fit <= liquid + width)
                                 # popt, pcov, chisquare, dof = fit_gausses(densities_fit[indices], histogram_fit[indices], histogram_std_fit[indices], params, gas, liquid)
                                 liquid_popt, liquid_pcov, chisquare, dof = fit_gauss(densities_fit[liquid_indices], histogram_fit[liquid_indices], histogram_std_fit[liquid_indices], params, liquid, width)
                                 gas_popt, gas_pcov, chisquare, dof = fit_gauss(densities_fit[gas_indices], histogram_fit[gas_indices], histogram_std_fit[gas_indices], params, gas, width)
@@ -225,6 +225,9 @@ def analyze_histogram(test_name, mode, vars, num_segments, fit='gauss'):
                 elif len(line) > 1:
                     histogram[row] = line[1]
                     row += 1
+                    # when have to use density file:
+                    # for value in line:
+                    #     histogram[int(value)] += 1
                 else:
                     histogram_coarsened = coarsen(histogram, num_combined, binwidth, normalize=True)
                     histograms.append(histogram_coarsened)
