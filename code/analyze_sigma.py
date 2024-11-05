@@ -18,7 +18,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
         params, N = read_param(file + '_param')
         box_size = np.ceil(params['r_max_pfap'])
     else:
-        file = test_name + f'_{rhos[0]:.1f}'
+        file = test_name + f'_{rhos[0]:.0f}'
         params, N = read_param(file + '_param')
         box_size = params['r_max_qsap']
 
@@ -60,14 +60,14 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
             plot_name = 'active_pressure'
         
         try:
-            sigma=np.loadtxt(sigmafile)[200:,:] # discard the measurement at the start, otherwise we can't divide up into even intervals
+            sigma=np.loadtxt(sigmafile)[Lx:,:] # discard the measurement at the start, otherwise we can't divide up into even intervals
         except OSError:
             print(f"No sigma file for {rho}")
             continue
 
         densityfile = file + '_density_data'
         try:
-            density=np.loadtxt(densityfile)[40:,:]
+            density=np.loadtxt(densityfile)[Lx//density_box_size:,:]
         except OSError:
             print(f"No density file for {rho}")
             continue
@@ -139,9 +139,13 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     #     rho_dense = np.linspace(0, 60, 1000)
     #     v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
     #     ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
+    
+    final_time = params["final_time"]
+    start_time = params["next_store_time"]
 
     if not walls:
-        equi_index = 20 # since (we can verify that) data starts at equilibrium (e.g. t=100)
+        equi_index = 10 # since (we can verify that) data starts at equilibrium (e.g. t=100)
+        start_time += equi_index*10
     else:
         equi_index = 20 # since data starts at t=0.
 
@@ -153,7 +157,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
         sigma_ind = sigmas[ind, equi_index:]
         # average pressure
         p = np.average(sigma_ind)
-        print("[" + ", ".join(map(str, sigma_ind-p)) + "]")        # measure the auto-correlation function
+        # print("[" + ", ".join(map(str, sigma_ind-p)) + "]")        # measure the auto-correlation function
         variance = np.sum((sigma_ind - p)**2) / len(sigma_ind)
         auto_corr = auto_correlation(sigma_ind-p) / variance
         plt.plot(auto_corr)
@@ -165,9 +169,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
 
     fig, ax = plt.subplots()
     ax.set_xlabel(r'$\rho$')
-    ax.set_ylabel(r'$p/p_{bulk}$')
-    final_time = params["final_time"]
-    start_time = params["next_store_time"]
+    ax.set_ylabel(r'$p$')
     legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
 
     """
@@ -204,7 +206,8 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     # for bar in (bars1 + bars2 + bars3):
     #     bar.set_alpha(0.5)
         
-    ax.legend(legends)
+    # ax.legend(legends,loc=(1.05, 0.1))
+    ax.legend()
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
     # ax.axhline(1, ls='--', color='grey')

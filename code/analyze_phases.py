@@ -48,6 +48,6 @@ if init == "slab":
     # pressures_liquid = pressures_liquid_tot - pressures_liquid_Q
 
     with open(test_name + f'_density_pressure', 'w') as f:
-        f.write(f"{param_label} rho_gas rho_liquid pressure_gas pressure_liquid pressure_gas_std pressure_liquid_std\n")
+        f.write(f"{param_label} rho_gas rho_liquid rho_gas_std rho_liquid_std pressure_gas pressure_liquid pressure_gas_std pressure_liquid_std\n")
         for i in range(len(vars)):
-            f.write(f"{vars_data[i]:.2f} {rho_gases_slab[i]:.4f} {rho_liquids_slab[i]:.4f} {pressures_gas[i]:.4f} {pressures_liquid[i]:.4f} {gas_std[i]:.4f} {liquid_std[i]:.4f}\n")
+            f.write(f"{vars_data[i]:.2f} {rho_gases_slab[i]:.4f} {rho_liquids_slab[i]:.4f} {rho_gases_std_slab[i]:.4f} {rho_liquids_std_slab[i]:.4f} {pressures_gas[i]:.4f} {pressures_liquid[i]:.4f} {gas_std[i]:.4f} {liquid_std[i]:.4f}\n")

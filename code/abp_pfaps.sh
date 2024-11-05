@@ -1,19 +1,19 @@
 #!/bin/bash
 {
-name_exe="abp_pfaps_harmonic"
+name_exe="abp_pfaps_wca"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.001
+dt=0.000005
 # N=34000
 Lx=200
 Ly=200
-rmax=1
+rmax=1.122462
 rho0=$2
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # N=$(echo "scale=0; 0.8 / $rmax / $rmax * $Ly * $Lx"  | bc)
-v=1.8393972058572117
+v=1
 epsilon=100
 # epsilon=$(echo "scale=0; 50 * $rmax"  | bc)
 # Pe=$1
@@ -21,7 +21,7 @@ epsilon=100
 # rf=$1
 # Pe=$(echo "scale=4; 5 / $rf"  | bc)
 # Dr=$(echo "scale=4; $v / $Pe" | bc)
-Dr=0.2
+Dr=0.08
 # v_min=5
 # v_max=$1
 # rho_m=10
@@ -34,7 +34,7 @@ Dr=0.2
 # rho_large=$3
 # rho_small=$2
 # liquid_fraction=0.5
-final_time=2000
+final_time=5000
 density_box_size=5
 # rho_rf2=0.4
 # N=$(echo "scale=0; $rho_rf2 / $rmax / $rmax * $Ly * $Lx"  | bc)

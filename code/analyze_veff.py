@@ -8,6 +8,8 @@ from helper import *
 
 matplotlib.rcParams.update({'font.size': 14})
 
+def v_QS(rho, v0, lamb, rhom, phi):
+    return v0*np.exp(-lamb*np.tanh((rho-rhom)/phi))
 
 def veff(rho, v, phi):
     return v*(1-rho/phi)
@@ -22,10 +24,17 @@ def analyze_veff(test_name, mode, vars, num_segments):
     # output: plot v(rho)
     number = len(vars)
     rhos = vars
-    # for each rho, get last state data, average the v's
+    if mode == "pfap":
+        file = test_name + f'_{rhos[0]}'
+        params, num_particles = read_param(file + '_param')
+    else:
+        file = test_name + f'_{rhos[0]:.0f}'
+        params, num_particles = read_param(file + '_param')
 
-    # Average over EVERY SNAPSHOTS
+    # expectation: v(rho)*(PFAPS reduction)
+    v_qs = v_QS(rhos, params['v'], params['lambda'], params['rho_m'], params['phi'])
 
+    # Average over EVERY SNAPSHOTS that equilibriated
     vs = np.zeros((number, num_segments))
     v_stds = np.zeros((number, num_segments))
     # rho_stds = np.zeros_like(rhos)
@@ -39,7 +48,7 @@ def analyze_veff(test_name, mode, vars, num_segments):
         
         datafile = file + '_v'
         try:
-            data=np.loadtxt(datafile, usecols=(0,1))
+            data=np.loadtxt(datafile, usecols=(0,1))[num_particles:,:]
         except OSError:
             print(rho)
             continue
@@ -54,7 +63,6 @@ def analyze_veff(test_name, mode, vars, num_segments):
         # rho_is = data[:,0]
         # v_is = data[:,1]
         # N = len(v_is)
-        print(N)        
         # rho_measureds[ind] = np.average(rho_is)
         # rho_stds[ind] = np.std(rho_is)/np.sqrt(N)
         # obtain v average
@@ -75,53 +83,52 @@ def analyze_veff(test_name, mode, vars, num_segments):
     v = params['v']
     r_pf = params['r_max_pfap']
     Dr = params['Dr']
-    vs_avg = np.mean(vs, axis=-1)
-    vs_stds = np.std(vs, axis=-1)/np.sqrt(num_segments-1)
+    vs_avg = np.mean(vs[:, 1:], axis=-1)
+    vs_stds = np.std(vs[:, 1:], axis=-1)/np.sqrt(num_segments-1)
 
-    if mode == "pfap":
-        v = params['v']
-        r_pf = params['r_max_pfap']
-        rho_max = 2/np.sqrt(3)/r_pf/r_pf
-        rho_dense = np.linspace(0,1.2,100)
-        # v_expecteds = v*(1-rhos/rho_max)
-        # ax.plot(rhos, v_expecteds, label=r"$v_0 (1-\rho / \rho_m)$")
-        popt, pcov = optimize.curve_fit(veff, rhos[:-2], vs_avg[:-2], p0=(-v, rho_max), sigma=vs_stds[:-2], absolute_sigma=True)
-        ax.plot(rho_dense,veff(rho_dense, *popt), label="Linear fit")
-        print(pcov)
-        ax.text(0.6, 0.5, fr"$v = {popt[0]:.2f}\times (1 - \rho/{popt[1]:.2f})$")
-    elif mode == "qsap":
-        v = params['v']
-        phi = params['phi']
-        rho_m = params['rho_m']
-        lamb = params['lambda']
-        rho_dense = np.linspace(0, 60, 1000)
-        v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))
-        ax.plot(rho_dense, v_expecteds, label='Expected veff')           
-    elif mode == "pfqs":
-        v = params['v']
-        phi = params['phi']
-        rho_m = params['rho_m']
-        lamb = params['lambda']
-        r_pf = params['r_max_pfap']
-        rho_dense = np.linspace(0, 60, 1000)
-        def veff_fit(rho, rho_star):
-            return veff_pfqs(rho, rho_star, r_pf, lamb, v, rho_m, phi)
-        popt, pcov = optimize.curve_fit(veff_fit, rhos, vs, p0=(1.3), sigma=v_stds, absolute_sigma=True)     
-        # ax.plot(rho_dense,veff_fit(rho_dense, *popt), label="Fit " + fr'$v(\rho)(1-\rho r_f^2/{popt[0]:.2f})$')   
-        # v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
-        # ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
+    # if mode == "pfap":
+    #     v = params['v']
+    #     r_pf = params['r_max_pfap']
+    #     rho_max = 2/np.sqrt(3)/r_pf/r_pf
+    #     rho_dense = np.linspace(0,1.2,100)
+    #     # v_expecteds = v*(1-rhos/rho_max)
+    #     # ax.plot(rhos, v_expecteds, label=r"$v_0 (1-\rho / \rho_m)$")
+    #     popt, pcov = optimize.curve_fit(veff, rhos[:-2], vs_avg[:-2], p0=(-v, rho_max), sigma=vs_stds[:-2], absolute_sigma=True)
+    #     ax.plot(rho_dense,veff(rho_dense, *popt), label="Linear fit")
+    #     print(pcov)
+    #     ax.text(0.6, 0.5, fr"$v = {popt[0]:.2f}\times (1 - \rho/{popt[1]:.2f})$")
+    # elif mode == "qsap":
+    #     v = params['v']
+    #     phi = params['phi']
+    #     rho_m = params['rho_m']
+    #     lamb = params['lambda']
+    #     rho_dense = np.linspace(0, 60, 1000)
+    #     v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))
+    #     ax.plot(rho_dense, v_expecteds, label='Expected veff')           
+    # elif mode == "pfqs":
+    #     v = params['v']
+    #     phi = params['phi']
+    #     rho_m = params['rho_m']
+    #     lamb = params['lambda']
+    #     r_pf = params['r_max_pfap']
+    #     rho_dense = np.linspace(0, 60, 1000)
+    #     def veff_fit(rho, rho_star):
+    #         return veff_pfqs(rho, rho_star, r_pf, lamb, v, rho_m, phi)
+    #     popt, pcov = optimize.curve_fit(veff_fit, rhos, vs, p0=(1.3), sigma=v_stds, absolute_sigma=True)     
+    #     # ax.plot(rho_dense,veff_fit(rho_dense, *popt), label="Fit " + fr'$v(\rho)(1-\rho r_f^2/{popt[0]:.2f})$')   
+    #     # v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
+    #     # ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
 
     # ax.errorbar(rhos, vs, yerr=v_stds, xerr=rho_stds, ls='', marker='.')
-    ax.plot(rhos, vs, ls='', marker='.', label=r"$v^*(\rho)/v(\rho)$")
-    ax.legend()
+    ax.plot(rhos, vs_avg/v_qs, ls='', marker='.', label=r"$v^*(\rho)/v(\rho)$")
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
     ax.set_title(r"$v_{eff}=\langle \dot{\vec{r}}\cdot \vec{u}\rangle$")
     final_time = params["final_time"]
     start_time = params["next_store_time"]
-    legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
-    ax.legend(["Fit"] + legends)
-    plt.savefig(test_name + '_v.png',  dpi=300, bbox_inches='tight')
+    # legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
+    ax.legend()
+    plt.savefig(test_name + '_v_reduced.png',  dpi=300, bbox_inches='tight')
 
     output = test_name + '_veff_data'
     with open(output, 'w') as f:

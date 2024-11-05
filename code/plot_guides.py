@@ -41,66 +41,65 @@ if os.path.exists(pf_file):
     pf_liquids_density = data[skiphigh:-skiplow, 2]
     rf_pfs = 5/0.5/Pes_pfs
 
+theory_type = "alternate_"
 
-# rfs_upper = np.array([0.06, 0.07, 0.07, 0.06])
-# left_side_rhos = np.array([10.694419931568554, 9.931359544747822, 117.26031214966136, 92.57068619002868])
-# right_side_rhos  = np.array([68.12138768578814,  52.26277572949672, 304.8448007099825, 423.5427770896261])
-# ax.plot(area_fraction(left_side_rhos, rfs_upper), 5/rfs_upper, color='orange', label="Local theory: metastable")
-# ax.plot(area_fraction(right_side_rhos, rfs_upper), 5/rfs_upper, color='purple', label="Local theory: metastable")
+theory_stable = f"pfap_qsap_local_{theory_type}vlow_stable"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.5, facecolor="C0", label="Stable coexistence")
+# ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='blue', label="Local theory: stable")
+# ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='blue')
 
+theory_stable = f"pfap_qsap_local_{theory_type}vlow_metastable_liquid"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C1", label="Metastable coexistence")
 
-# theory_stable = "pfap_qsap_local_stable"
-# data = np.loadtxt(theory_stable, skiprows=1)
-# rf_theory = data[:,0]
-# gas_theory = data[:,1]
-# liquid_theory = data[:,2]
-# ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.5, facecolor="C0", label="Stable coexistence")
-# # ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='blue', label="Local theory: stable")
-# # ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='blue')
-
-# theory_stable = "pfap_qsap_local_metastable_liquid"
-# data = np.loadtxt(theory_stable, skiprows=1)
-# rf_theory = data[:,0]
-# gas_theory = data[:,1]
-# liquid_theory = data[:,2]
-# ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C1", label="Metastable coexistence")
-
-# theory_stable = "pfap_qsap_local_metastable_solid"
-# data = np.loadtxt(theory_stable, skiprows=1)
-# rf_theory = data[:,0]
-# gas_theory = data[:,1]
-# liquid_theory = data[:,2]
-# ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C1")
+theory_stable = f"pfap_qsap_local_{theory_type}vlow_metastable_solid"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C1")
 
 
-# theory_stable = "pfap_qsap_local_solid"
-# data = np.loadtxt(theory_stable, skiprows=1)
-# rf_theory = data[:,0]
-# gas_theory_2 = data[:,1]
-# liquid_theory = data[:,2]
-# ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory_2, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.5, facecolor="C0")
-# # ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='blue', label="Local theory: stable")
-# # ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='blue')
+theory_stable = f"pfap_qsap_local_{theory_type}vlow_solid"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory_2 = data[:,1]
+liquid_theory = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory_2, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.5, facecolor="C0")
+# ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='blue', label="Local theory: stable")
+# ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='blue')
 
-# theory_stable = "pfap_qsap_local_liquid"
-# data = np.loadtxt(theory_stable, skiprows=1)
-# rf_theory = data[:,0]
-# gas_theory = data[:,1]
-# liquid_theory_1 = data[:,2]
-# ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory_1, rf_theory), alpha=0.5, facecolor="C0")
-# # ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='blue', label="Local theory: stable")
-# # ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='blue')
+theory_stable = f"pfap_qsap_local_{theory_type}vlow_liquid"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory_1 = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory_1, rf_theory), alpha=0.5, facecolor="C0")
 
-# # ax.fill_betweenx(5/rf_theory, area_fraction(liquid_theory_1, rf_theory), area_fraction(gas_theory_2, rf_theory), alpha=0.3, facecolor="grey", label="Reentrant homogeneous")
+# spinodal
+theory_stable = f"pfap_qsap_spinodal_onebranch"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory = data[:,2]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C2", label="Spinodal")
 
-
-# # theory_metastable = "pfap_qsap_local_metastable"
-# # data = np.loadtxt(theory_metastable, skiprows=1)
-# # rf_theory = data[:,0]
-# # gas_theory = data[:,1]
-# # liquid_theory = data[:,2]
-# # ax.plot(area_fraction(gas_theory, rf_theory), 5/rf_theory, color='brown', label="Local theory: metastable")
-# # ax.plot(area_fraction(liquid_theory, rf_theory), 5/rf_theory, color='brown')
+theory_stable = f"pfap_qsap_spinodal_twobranches"
+data = np.loadtxt(theory_stable, skiprows=1)
+rf_theory = data[:,0]
+gas_theory = data[:,1]
+liquid_theory = data[:,2]
+liquid2_theory = data[:,3]
+solid_theory = data[:,4]
+ax.fill_betweenx(5/rf_theory, area_fraction(gas_theory, rf_theory), area_fraction(liquid_theory, rf_theory), alpha=0.3, facecolor="C2")
+ax.fill_betweenx(5/rf_theory, area_fraction(liquid2_theory, rf_theory), area_fraction(solid_theory, rf_theory), alpha=0.3, facecolor="C2")
 
 
 if os.path.exists(file):
@@ -108,35 +107,29 @@ if os.path.exists(file):
     # ax.set_ylabel(param_label)
     # ax.set_xlabel('Density')
 
-    data = np.loadtxt(file, skiprows=1)
-    rho_gases = data[:,1]
-    rho_liquids = data[:,2]
-    Pes = data[:,0]
-    rfs = 5/1/Pes
-    rfs_dense = np.linspace(0.035, 0.30, 100)
-    rfs_dense_qsap_display = np.linspace(0.035, 0.16, 100)
+    # data = np.loadtxt(file, skiprows=1)
+    # rho_gases = data[:,1]
+    # rho_liquids = data[:,2]
+    # Pes = data[:,0]
+    # rfs = 5/1/Pes
+    # rfs_dense = np.linspace(0.035, 0.30, 100)
+    # rfs_dense_qsap_display = np.linspace(0.035, 0.16, 100)
 
-    Pes_dense = 5/1/rfs_dense
+    # Pes_dense = 5/1/rfs_dense
 
     alpha = 0.8
 
-    # QS phase diagrams
-    qs_gases_areafrac = area_fraction(7.4, rfs_dense)
-    qs_liquids_areafrac = area_fraction(51.2, rfs_dense_qsap_display)
-    # init = area_fraction(19.44, rfs_dense)
-    # rho_m = area_fraction(25, rfs_dense)
-    ax.plot(qs_gases_areafrac, Pes_dense, label="QS", color='grey', alpha=alpha)
-    ax.plot(qs_liquids_areafrac, Pes_dense, color='grey', alpha=alpha)
+    # # QS phase diagrams
+    # qs_gases_areafrac = area_fraction(7.4, rfs_dense)
+    # qs_liquids_areafrac = area_fraction(51.2, rfs_dense_qsap_display)
+    # # ax.plot(qs_gases_areafrac, Pes_dense, color='grey', alpha=alpha, label="QSAPs binodal")
+    # # ax.plot(qs_liquids_areafrac, 5/rfs_dense_qsap_display, color='grey', alpha=alpha)
 
-    # PF phase diagram
-    # ax.axvline(np.pi/2/np.sqrt(3), label="PF crystals", color='black')
-    # ax.plot(rho_m, rfs_dense, label="QS density scale", color='grey')
-    # pf_gases_areafrac = area_fraction(pf_gases_density, rf_pfs)
-    # pf_liquids_areafrac = area_fraction(pf_liquids_density, rf_pfs)
-    pf_gases_areafrac = pf_gases_density * np.pi/4
-    pf_liquids_areafrac = pf_liquids_density * np.pi/4
-    ax.plot(pf_gases_areafrac, Pes_pfs, label="PF", color='grey', marker='v', ls='', alpha=alpha)
-    ax.plot(pf_liquids_areafrac, Pes_pfs, color='grey', marker='v', ls='', alpha=alpha)
+    # # PF phase diagram
+    # pf_gases_areafrac = pf_gases_density * np.pi/4
+    # pf_liquids_areafrac = pf_liquids_density * np.pi/4
+    # ax.plot(pf_gases_areafrac, Pes_pfs, color='grey', marker='v', ls='', alpha=alpha, label="PFAPs binodal")
+    # ax.plot(pf_liquids_areafrac, Pes_pfs, color='grey', marker='v', ls='', alpha=alpha)
     # ax.plot(init, 5/rfs_dense, label="Initial density", color='purple', marker='', ls='--')    
 
     # # Plot binodal from histogram
@@ -167,79 +160,82 @@ if os.path.exists(file):
     # ax.plot(rho_gases_rmax1, Pes_pfs_rmax1, label="Vary Dr", color='C1', marker='+', ls='')
     # ax.plot(rho_liquids_rmax1, Pes_pfs_rmax1, color='C1', marker='+', ls='')
 
-    # Plot binodal from histogram
-    area_fraction_gas = area_fraction(rho_gases, rfs)
-    area_fraction_liquid = area_fraction(rho_liquids, rfs)
-    # ax.plot(area_fraction_gas[:4], Pes[:4], color='C0', ls='', marker='.', ms=12, label="PF+QS metastable")
-    # ax.plot(area_fraction_liquid[:4], Pes[:4], color='C0', ls='', marker='.', ms=12)
-    skip = 3
-    ax.plot(area_fraction_gas[skip:], Pes[skip:], color='C0', ls='--', marker='o')
-    ax.plot(area_fraction_liquid[skip:], Pes[skip:], color='C0', ls='--', marker='o')
-    ax.fill_betweenx(Pes[skip:], area_fraction_gas[skip:], area_fraction_liquid[skip:], alpha=0.4, color="C0")
-
-    # Plot binodal from slab
-    # data_slab = np.loadtxt(file_slab, skiprows=1)
-    # rho_gases = data_slab[:,1]
-    # rho_liquids = data_slab[:,2]
-    # rfs = data_slab[:,0]
+    # # Plot binodal from histogram
     # area_fraction_gas = area_fraction(rho_gases, rfs)
     # area_fraction_liquid = area_fraction(rho_liquids, rfs)
-    # ax.plot(area_fraction_gas, Pes, color='C1', ls='', marker='+', ms=12, label="PF+QS slab")
-    # ax.plot(area_fraction_liquid, Pes, color='C1', ls='', marker='+', ms=12)
+    # # ax.plot(area_fraction_gas[:4], Pes[:4], color='C0', ls='', marker='.', ms=12, label="PF+QS metastable")
+    # # ax.plot(area_fraction_liquid[:4], Pes[:4], color='C0', ls='', marker='.', ms=12)
+    # skip = 3
+    # ax.plot(area_fraction_gas[skip:], Pes[skip:], color='C0', ls='--', marker='o')
+    # ax.plot(area_fraction_liquid[skip:], Pes[skip:], color='C0', ls='--', marker='o')
+    # ax.fill_betweenx(Pes[skip:], area_fraction_gas[skip:], area_fraction_liquid[skip:], alpha=0.4, color="C0")
 
-    # data_solid = np.loadtxt(file_solids, skiprows=1)
-    # rho_gases = data_solid[:,1]
-    # rho_liquids = data_solid[:,2]
-    # Pes = data_solid[:,0]
-    # rfs = 5/1/Pes
-    # area_fraction_gas = area_fraction(rho_gases, rfs)
-    # area_fraction_liquid = area_fraction(rho_liquids, rfs)
-    # ax.plot(area_fraction_gas[2], Pes[2], color='C0', ls='', marker='x', ms=12)
-    # ax.plot(area_fraction_liquid[2], Pes[2], color='C0', ls='', marker='x', ms=12)
+    # # Plot binodal from slab
+    # # data_slab = np.loadtxt(file_slab, skiprows=1)
+    # # rho_gases = data_slab[:,1]
+    # # rho_liquids = data_slab[:,2]
+    # # rfs = data_slab[:,0]
+    # # area_fraction_gas = area_fraction(rho_gases, rfs)
+    # # area_fraction_liquid = area_fraction(rho_liquids, rfs)
+    # # ax.plot(area_fraction_gas, Pes, color='C1', ls='', marker='+', ms=12, label="PF+QS slab")
+    # # ax.plot(area_fraction_liquid, Pes, color='C1', ls='', marker='+', ms=12)
 
-    # ax.plot(area_fraction_gas[:2], Pes[:2], color='C0', ls='', marker='.', ms=12)
-    # ax.plot(area_fraction_liquid[:2], Pes[:2], color='C0', ls='', marker='.', ms=12)
+    # # data_solid = np.loadtxt(file_solids, skiprows=1)
+    # # rho_gases = data_solid[:,1]
+    # # rho_liquids = data_solid[:,2]
+    # # Pes = data_solid[:,0]
+    # # rfs = 5/1/Pes
+    # # area_fraction_gas = area_fraction(rho_gases, rfs)
+    # # area_fraction_liquid = area_fraction(rho_liquids, rfs)
+    # # ax.plot(area_fraction_gas[2], Pes[2], color='C0', ls='', marker='x', ms=12)
+    # # ax.plot(area_fraction_liquid[2], Pes[2], color='C0', ls='', marker='x', ms=12)
 
-    # 2 branches
-    rfs_upper = np.array([0.035, 0.04, 0.05, 0.06])
-    left_side_rhos1 = np.array([7.852, 7.382, 7.119, 6.880])
-    ax.plot(area_fraction(left_side_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
+    # # ax.plot(area_fraction_gas[:2], Pes[:2], color='C0', ls='', marker='.', ms=12)
+    # # ax.plot(area_fraction_liquid[:2], Pes[:2], color='C0', ls='', marker='.', ms=12)
 
-    rfs_upper = np.array([0.06, 0.05, 0.04, 0.035])[::-1]
-    left_side_rhos2 = np.array([51.597, 51.220, 51.159, 50.430])[::-1]
-    ax.plot(area_fraction(left_side_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
+    # # 2 branches
+    # rfs_upper = np.array([0.035, 0.04, 0.05, 0.06])
+    # left_side_rhos1 = np.array([7.852, 7.382, 7.119, 6.880])
+    # ax.plot(area_fraction(left_side_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
 
-    ax.fill_betweenx(5/rfs_upper, area_fraction(left_side_rhos1,rfs_upper), area_fraction(left_side_rhos2,rfs_upper), alpha=0.4, color="C0")
+    # rfs_upper = np.array([0.06, 0.05, 0.04, 0.035])[::-1]
+    # left_side_rhos2 = np.array([51.597, 51.220, 51.159, 50.430])[::-1]
+    # print(rfs_upper)
+    # print(left_side_rhos2)
+    # ax.plot(area_fraction(left_side_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
 
-    rfs_upper = np.array([0.04, 0.05, 0.06])
-    right_side_rhos1  = np.array([91.571, 69.379,  54.783])
-    ax.plot(area_fraction(right_side_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
+    # ax.fill_betweenx(5/rfs_upper, area_fraction(left_side_rhos1,rfs_upper), area_fraction(left_side_rhos2,rfs_upper), alpha=0.4, color="C0")
 
-    rfs_upper = np.array([0.04, 0.05, 0.06])
-    right_side_rhos2  = np.array([720.674, 460.540, 319.813])
-    ax.plot(area_fraction(right_side_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
+    # rfs_upper = np.array([0.035, 0.04, 0.05, 0.06])
+    # right_side_rhos1  = np.array([109.035, 91.571, 69.379,  54.783])
+    # ax.plot(area_fraction(right_side_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
 
-    ax.fill_betweenx(5/rfs_upper, area_fraction(right_side_rhos1,rfs_upper), area_fraction(right_side_rhos2,rfs_upper), alpha=0.4, color="C0")
+    # rfs_upper = np.array([0.035, 0.04, 0.05, 0.06])
+    # right_side_rhos2  = np.array([939.115, 720.674, 460.540, 319.813])
+    # ax.plot(area_fraction(right_side_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C0')
 
-    # metastable
-    rfs_upper = np.array([0.07, 0.08])
-    metastable_rhos1  = np.array([6.550,  6.222])
-    ax.plot(area_fraction(metastable_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C1')
+    # ax.fill_betweenx(5/rfs_upper, area_fraction(right_side_rhos1,rfs_upper), area_fraction(right_side_rhos2,rfs_upper), alpha=0.4, color="C0")
 
-    rfs_upper = np.array([0.07, 0.08])
-    metastable_rhos2  = np.array([53.420, 54.689])
-    ax.plot(area_fraction(metastable_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C1')
+    # # metastable
+    # rfs_upper = np.array([0.07, 0.08])
+    # metastable_rhos1  = np.array([6.550,  6.222])
+    # ax.plot(area_fraction(metastable_rhos1, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C1')
 
-    ax.fill_betweenx(5/rfs_upper, area_fraction(metastable_rhos1,rfs_upper), area_fraction(metastable_rhos2,rfs_upper), alpha=0.4, color="C1")
+    # rfs_upper = np.array([0.07, 0.08])
+    # metastable_rhos2  = np.array([53.420, 54.689])
+    # ax.plot(area_fraction(metastable_rhos2, rfs_upper), 5/rfs_upper, ls='--', marker='o', color='C1')
+
+    # ax.fill_betweenx(5/rfs_upper, area_fraction(metastable_rhos1,rfs_upper), area_fraction(metastable_rhos2,rfs_upper), alpha=0.4, color="C1")
+    
     # 120.5, 0.035; 107,0.04; 80, 0.05; 53, 0.06: homogeneous
     # rfs_upper = np.array([0.035, 0.04, 0.06])
     # right_side_rhos  = np.array([120.5, 107.0, 53.0])
     # ax.plot(area_fraction(right_side_rhos, rfs_upper), 5/rfs_upper, ls='', marker='o', color='C2', ms=12, label="Reentrant homogeneous phase")
 
-    # ax.legend(loc=(1.05,0.25))
-    ax.set_xlim(left=0, right=1.3)
+    ax.legend(loc=(1.05,0.4))
+    ax.set_xlim(left=0, right=1.2)
     ax.set_ylim(bottom=0, top=150)
     # ax.set_title("PF+QS numerics")
-    plt.savefig('pfap_qsap_largeeps_phase_diagram_numerics.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'pfap_qsap_largeeps_phase_diagram_spinodal.png', dpi=300, bbox_inches='tight')
     plt.close()
 

@@ -5,22 +5,22 @@ name_exe="abp_pfaps_harmonic_qsaps_exp"
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 name_all=$1
 dt=0.0001
-Lx=10
+Lx=20
 Ly=10
-v=5
 Dr=1
 # N=32000
 # lp=$(echo "scale=0; $v / $Dr"  | bc)
 # lprf=$2
 # rmax_pfap=$(printf "%.2f" "$(echo "scale=4; $lp / $lprf" | bc)")
-# rho_large=$4
-# rho_small=$3
-# liquid_fraction=0.5
+# rho_large=460
+# rho_small=8
+# liquid_fraction=0.4
 rho_m=25
-rho0=0.5
+rho0=$2
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 rmax_pfap=$2
 lambda=1
+v=5
 phi=10
 rmax_qsap=1
 epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
@@ -31,7 +31,7 @@ epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
 # N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # rho_rf2=0.7
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
-final_time=1000
+final_time=500
 density_box_size=1
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=10
@@ -39,19 +39,19 @@ data_store=$timestep
 update_histo=1
 histo_store=$timestep
 start_time=0
-resume="yes"
+resume="no"
 terminal_x=1500
 terminal_y=1500
 
-name="$name_all"_"$rmax_pfap"
+name="$name_all"
 
-# {
-#     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-#     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-#     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
-# } \
-# 2>> "$name"_param
+{
+    # time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+    time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+} \
+2>> "$name"_param
 
 file="$name"_data
 dir="$name"_video
