@@ -2,21 +2,20 @@ import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
 import os
-os.chdir('..')
 
 matplotlib.rcParams.update({'font.size': 20})
 lw = 3
-rhos = np.linspace(0, 60, 1000)
-vs = 5 * np.exp(-1*np.tanh((rhos-25)/10))
+rhos = np.linspace(0, 50, 1000)
+vs = 5 * np.exp(-1*np.tanh((rhos-25)/1)) - 5
 # plt.subplots(figsize = (6,6))
 plt.xlabel(r"$\rho$")
 plt.ylabel(r"$v$")
 # plt.text(23, 10, r"$v(\rho) = v_0 \exp \left[-\lambda \tanh \left(\frac{\rho-\rho_m}{\phi} \right) \right]$")
 plt.title(r"$v_2(\rho)$")
 plt.plot(rhos, vs, c='C2', lw=lw)
-plt.xlim(left=0)
-plt.ylim(bottom=0)
-plt.savefig("Quorum sensing funcion.png", dpi=300, bbox_inches='tight')
+plt.xlim(left=0, right=50)
+plt.ylim(bottom=0, top=15)
+plt.savefig("Quorum sensing funcion zero.png", dpi=300, bbox_inches='tight')
 plt.close()
 
 rs = np.linspace(0.0, 2.0, 1000)
@@ -59,12 +58,12 @@ def vzero(rhos):
             break
     return v
 
-plt.xlabel(r"$\rho$")
-plt.ylabel(r"$v$")
-plt.title(r"$v_1(\rho)$")
-plt.plot(rhos, vzero(rhos), c='C2', lw=lw)
-plt.axvline(25.0, ls='--', c="C3", lw=lw)
-plt.xlim(left=0)
-plt.ylim(bottom=0, top=6)
-plt.savefig("Quorum sensing funcion zero.png", dpi=300, bbox_inches='tight')
-plt.close()
+# plt.xlabel(r"$\rho$")
+# plt.ylabel(r"$v$")
+# plt.title(r"$v_1(\rho)$")
+# plt.plot(rhos, vzero(rhos), c='C2', lw=lw)
+# plt.axvline(25.0, ls='--', c="C3", lw=lw)
+# plt.xlim(left=0)
+# plt.ylim(bottom=0, top=6)
+# plt.savefig("Quorum sensing funcion zero.png", dpi=300, bbox_inches='tight')
+# plt.close()

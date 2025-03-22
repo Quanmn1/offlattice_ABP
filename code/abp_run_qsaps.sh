@@ -1,9 +1,9 @@
 #!/bin/bash
 {
-start=0.0
-ending=1.0
-space=0.2
-name_all="qsaps_condensation_test0"
+start=0.7
+ending=1.3
+space=0.1
+name_all="qsaps_lambda1_phase_diagram"
 mode="qsap"
 num_segments=5
 init="homo"
@@ -18,8 +18,8 @@ num=$(echo $vars | wc -w)
 { 
 time {
 # tail -n +2 "$input_density" | xargs -P11 -n 3 ./abp_qsaps_zero.sh
-printf "$vars" | xargs -P$num -d ' ' -I{} ./abp_qsaps_zero.sh $name_all {}
-# seq $start $space $ending | xargs -P$num -I{} ./abp_qsaps_zero.sh {}
+# printf "$vars" | xargs -P$num -d ' ' -I{} ./abp_qsaps_exp.sh $name_all {}
+# seq $start $space $ending | xargs -P$num -I{} ./abp_qsaps_exp.sh $name_all {}
 python3 analyze_phases.py $name_all $mode "$vars" $num_segments $init $homo_fit $slab_fit
 # seq $start $space $ending | xargs -P6 -I{} ./get_last.sh {}
 # python3 analyze_veff.py $name_all $mode $start $ending $space

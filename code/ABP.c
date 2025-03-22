@@ -94,6 +94,12 @@ TRY {
         #endif
         );
         #endif
+    #elif defined(INIT_CIRCLE)
+        CircularLatticeInitialConditions(particles, parameters
+        #ifdef HASHING
+        , &boxes, &neighbors
+        #endif
+        );
     #else
         #ifdef PFAP
         LatticeInitialConditions(particles, parameters

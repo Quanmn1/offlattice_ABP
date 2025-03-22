@@ -1,35 +1,35 @@
 #!/bin/bash
 {
-name_exe=abp_qsaps2
+name_exe=abp_qsaps_exp
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
-dt=0.05
+dt=0.02
 N=40000
 # liquid_fraction=0.5
 Lx=40
 Ly=40
-lambda=1
+lambda=$2
 # rho_large=$(echo "scale=1; 52 + 50 * $lambda"  | bc)
 # rho_small=$(echo "scale=1; 46 - 30 * $lambda"  | bc)
 # echo "rho_large = $rho_large"
 # echo "rho_small = $rho_small"
 rho_m=25
 v=5
-phi=10
+phi=1
 rmax=1
-Dr=$1
+Dr=1
 final_time=5000
 density_box_size=4
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
 timestep=50
 data_store=$timestep
-update_histo=1
+update_histo=5
 histo_store=$timestep
 start_time=0
 resume="no"
 
-name="$name_all"_"$Dr"
+name="$name_all"_"$lambda"
 {
     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax $Dr $final_time \
     $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234

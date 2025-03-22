@@ -4,7 +4,9 @@
 #define QSAP_EXP
 // #define QSAP_ZERO_LINEAR
 // #define QSAP_ZERO_SMOOTH
-#if defined(QSAP_ZERO_LINEAR) || defined(QSAP_ZERO_SMOOTH)
+// #define QSAP_ZERO_EXP
+// #define QSAP_ZERO_ASYMP
+#if defined(QSAP_ZERO_LINEAR) || defined(QSAP_ZERO_SMOOTH) || defined(QSAP_ZERO_EXP) || defined(QSAP_ZERO_ASYMP)
 #define QSAP_ZERO
 #endif
 #define HARMONIC
@@ -23,6 +25,7 @@
 // #define TESTING_DENSITY
 // #define TESTING_FORCE
 // #define INIT_SLAB
+#define INIT_CIRCLE
 // #define WALL
 
 /*

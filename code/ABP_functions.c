@@ -25,6 +25,11 @@ typedef struct param {
     double rho_large;
     double liquid_fraction;
     #endif
+    #if defined(INIT_CIRCLE)
+    double rho_small;
+    double rho_large;
+    double radius;
+    #endif
     double Lx;
     double Ly;
 #ifdef QSAP_TANH
@@ -180,6 +185,15 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
 
     strcat(*command_line_output, "liquid_fraction ");
     number_of_input_parameters++;
+#elif defined INIT_CIRCLE
+    strcat(*command_line_output, "rho_small ");
+    number_of_input_parameters++;
+
+    strcat(*command_line_output, "rho_large ");
+    number_of_input_parameters++;
+
+    strcat(*command_line_output, "radius ");
+    number_of_input_parameters++;
 #else
     strcat(*command_line_output, "N ");
     number_of_input_parameters++;
@@ -309,6 +323,10 @@ void ReadInputParameters(int argc, char* argv[], char** command_line_output, par
     parameters[0].rho_small = strtod(argv[i], NULL); i++;
     parameters[0].rho_large = strtod(argv[i], NULL); i++;
     parameters[0].liquid_fraction = strtod(argv[i], NULL); i++;
+#elif defined INIT_CIRCLE
+    parameters[0].rho_small = strtod(argv[i], NULL); i++;
+    parameters[0].rho_large = strtod(argv[i], NULL); i++;
+    parameters[0].radius = strtod(argv[i], NULL); i++;
 #else
     parameters[0].N = (long) strtod(argv[i], NULL); i++;
 #endif
@@ -377,6 +395,10 @@ void AssignValues(param* parameters, inputparam input_parameters, particle** par
     long N_left = (long) (parameters[0].rho_small * parameters[0].Lx * parameters[0].Ly * (1-parameters[0].liquid_fraction));
     long N_right =  (long) (parameters[0].rho_large * parameters[0].Lx * parameters[0].Ly * parameters[0].liquid_fraction);
     parameters[0].N = N_left + N_right;
+    #elif defined INIT_CIRCLE
+    long N_small = (long) (parameters[0].rho_large * M_PI * parameters[0].radius * parameters[0].radius);
+    long N_large = (long) (parameters[0].rho_small * (parameters[0].Lx*parameters[0].Ly - M_PI * parameters[0].radius * parameters[0].radius));
+    parameters[0].N = N_small + N_large;
     #endif
 
     char filename[2050]; // string of the filenames
@@ -712,6 +734,23 @@ double DensityDependentSpeed4(double rho, double rho_m, double v, double lambda,
     else if (rho < rho_m) return v * (1 - lambda + lambda * (rho_m-rho)/phi);
     else return v * (1 - lambda);
 }
+
+double DensityDependentSpeed5(double rho, double rho_m, double v, double lambda, double phi) {
+    /*
+    Linear.
+    Give speed that is v at rho<rho_m-phi/2, v(1-lambda) at rho>rho_m+phi/2, linearly interpolate in between
+    */    
+    if (rho < rho_m) return v*exp(-lambda*tanh((rho-rho_m)/phi)) - v;
+    else return 0;
+}
+
+double DensityDependentSpeed6(double rho, double rho_m, double v, double lambda, double phi){
+    /*
+    Give the density-dependent speed that asymptotically goes to zero
+    */
+    return v*exp(-lambda*tanh((rho-rho_m)/phi)) - v*exp(-lambda);
+}
+
 
 double PositionDependentSpeed(double x, double y){
     /*
@@ -1134,6 +1173,10 @@ void MeasureDensityAndForce(long* neighbors, particle* particles, long** boxes, 
         particles[i].v = DensityDependentSpeed4(particles[i].rho, parameters[0].rho_m, parameters[0].v, parameters[0].lambda, parameters[0].phi);
         #elif defined(QSAP_ZERO_SMOOTH)
         particles[i].v = DensityDependentSpeed3(particles[i].rho, parameters[0].rho_m, parameters[0].v, parameters[0].lambda, parameters[0].phi);
+        #elif defined(QSAP_ZERO_EXP)
+        particles[i].v = DensityDependentSpeed5(particles[i].rho, parameters[0].rho_m, parameters[0].v, parameters[0].lambda, parameters[0].phi);
+        #elif defined(QSAP_ZERO_ASYMP)
+        particles[i].v = DensityDependentSpeed6(particles[i].rho, parameters[0].rho_m, parameters[0].v, parameters[0].lambda, parameters[0].phi);
         #endif
         particles[i].move_x = particles[i].v*cos(particles[i].theta) + particles[i].fx;
         particles[i].move_y = particles[i].v*sin(particles[i].theta) + particles[i].fy;
@@ -1286,10 +1329,12 @@ void MeasureSigmaActive(double** sigmaA, double** sigmaAprime, long* neighbors, 
     long i;
     double r0 = parameters.box_size;
     double Dr = parameters.Dr;
+    #if defined(QSAP) && defined(PFAP)
     double v0 = parameters.v;
     double phi = parameters.phi;
     double lambda = parameters.lambda; 
     double rho_m = parameters.rho_m;
+    #endif
     int NxBox = parameters.NxBox;
     int NyBox = parameters.NyBox;
     // Loop through all boxes
@@ -1802,9 +1847,9 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     double max_lattice_size_liquid = sqrt(2/sqrt(3)/parameters.rho_large) - 0.01;
     // horizontal lattice spacing: should keep finite when r_f is small
     double a = fmin(max_lattice_size_liquid, fmax(0.3, parameters.interaction_range_pfap)); 
-
     // double a = 0.9*parameters.interaction_range_pfap; //horizontal lattice spacing
     double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
+
     long Ngas = (long) (parameters.rho_small * Lx * Ly * (1-liquid_fraction));
     long Nliquid = (long) (parameters.rho_large * Lx * Ly * liquid_fraction);
     int NxL = floor(Lx * liquid_fraction     / a ); //Number of sites in x direction in liquid phase
@@ -1952,6 +1997,196 @@ void SlabLatticeInitialConditions(particle* particles, param parameters
     fflush(stderr);
 }
 #endif
+
+#ifdef INIT_CIRCLE
+void CircularLatticeInitialConditions(particle* particles, param parameters
+                        #ifdef HASHING
+                        , long*** boxes, long** neighbors
+                        #endif
+                        ){
+    /*
+    Create a triangular lattice inside a circle at the center of the system.
+    This lattice is populated with particles at high density.
+    The rest of the system is populated with particles at low density.
+    */
+    double radius = parameters.radius;
+    double rsquared = radius*radius;
+    #ifndef WALL
+    double Lx = parameters.Lx;
+    #else
+    // when have walls, still use the prescribed density, will have fewer particles than if we have no walls
+    double wall_size = parameters.wall_size;
+    double Lx = parameters.Lx - 2 * wall_size;
+    #endif
+    double Ly = parameters.Ly;
+    double rho_small = parameters.rho_small;
+    double rho_large = parameters.rho_large;
+    #ifdef HASHING
+    double box_size = parameters.box_size;
+    int bi, bj;
+    #endif
+    long nb; //Number of particles placed so far
+    long i,j,k;
+    double x, y;
+    int bool;
+
+    long Ngas = (long) (rho_small * (Lx * Ly - M_PI*radius*radius));
+    long Nliquid = (long) (rho_large * M_PI*radius*radius);
+    double liquid_fraction = M_PI*radius*radius / (Lx * Ly);
+
+    // the lattice size necessary for producing rho_large
+    double max_lattice_size_liquid = sqrt(2/sqrt(3)/rho_large) - 0.01;
+    // horizontal lattice spacing: should keep finite when r_f is small
+    double a = fmin(max_lattice_size_liquid, fmax(0.3, parameters.interaction_range_pfap)); 
+    double h = a*cos(M_PI/6.); //height between two layers. Equal to a*cos(pi/6)
+
+    /* 
+    Create the lattices to sample in. 
+    The particles will be sampled from this lattice but accepted according to the circle boundary.
+    */
+
+    // The liquid lattice is a square of side 2*radius centered at (Lx/2,Ly/2)
+    int NxL = floor(2*radius / a ); //Number of sites in x direction in liquid phase
+    int NyL = floor(2*radius / h );  //Number of sites in y direction in liquid phase
+    long NsitesLiq = NxL*NyL; //Total number of available sites in the liquid phase
+    int* LiquidPhase;//Lattice of liquid phase
+
+    // The gas lattice is the whole system
+    int NxG = floor(Lx / a ); //Number of sites in x direction in gas phase
+    int NyG = floor(Ly / h );  //Number of sites in y direction in gas phase
+    long NsitesGas = NxG*NyG; //Total number of available sites in the gas phase
+    int* GasPhase; //Lattice of gas phase
+
+    GasPhase    = calloc(NsitesGas,sizeof(int));
+    LiquidPhase = calloc(NsitesLiq,sizeof(int));
+    if (GasPhase==NULL || LiquidPhase==NULL) {
+        fprintf(stderr, "Memory allocation for GasPhase or LiquidPhase failed.\n");
+        fflush(stderr);
+        ERROR(3);
+    }
+
+    //if there are enough spaces for the Ngas particles
+    if(Ngas<=NsitesGas*(1-liquid_fraction)){
+        for(i=0;i<Ngas;i++){
+            bool=1;
+            // We pull a site at random and place the particle there if the
+            // site is not occupied
+            while(bool==1){
+                k=genrand64_int64()%NsitesGas;
+                x = a * (k % NxG);
+                y = h * ((k - k % NxG) / NxG);
+                if(GasPhase[k]==0 && (x-Lx/2)*(x-Lx/2) + (y-Ly/2)*(y-Ly/2) > rsquared){
+                    GasPhase[k]=1;
+                    bool=0;
+                }
+            }
+        }
+    }
+    else {
+        fprintf(stderr, "Not enough gas sites: %ld > %ld\n", Ngas, NsitesGas);
+        fflush(stderr);
+        ERROR(4);
+    }
+
+    //if there are enough sites for the Nliquid particles
+    if(Nliquid<=NsitesLiq*M_PI/4){
+        for(i=0;i<Nliquid;i++){
+            bool=1;
+            // We pull a site at random and place the particle there if the
+            // site is not occupied
+            while(bool==1){
+                k=genrand64_int64()%NsitesLiq;
+                x = a * (k % NxL) + Lx/2 - radius;
+                y = h * ((k - k % NxL) / NxL) + Ly/2 - radius;
+                if(LiquidPhase[k]==0 && (x-Lx/2)*(x-Lx/2) + (y-Ly/2)*(y-Ly/2) < rsquared){
+                    LiquidPhase[k]=1;
+                    bool=0;
+                }
+            }
+        }
+    }
+    else {
+        fprintf(stderr, "Not enough liquid sites: %ld > %ld\n", Nliquid, NsitesLiq);
+        fflush(stderr);
+        ERROR(4);
+    }
+
+    // Put the particles in the lattices
+    // We now place particles in particles, given the arrays
+    //nb is the label of the particle to be placed. 
+    nb=0;
+    //We start with the particles in NsitesLiq. We go through all the
+    //sites of the lattice LiquidPhase.
+    for(i=0;i<NsitesLiq;i++){
+        //If it is occupied, place the particle.
+        if(LiquidPhase[i]==1){
+            // printf("nb = %ld N = %ld\n", nb, parameters.N);
+            //we know that i = k + NxL * j
+            k = i % NxL;
+            j = (i-k) / NxL;
+            //Compute the corresponding x. Depending on whether the line is
+            //even or odd, there is an a/2 offset. The left end of the liquid phase
+            //is at Lx/2 - radius
+            particles[nb].x = Lx/2 - radius + k*a + a * .5 * (j%2);
+            particles[nb].y = Ly/2 - radius + j*h;
+            particles[nb].theta = 2*M_PI*genrand64_real2();
+            particles[nb].fx = 0;
+            particles[nb].fy = 0;
+            #if defined NONE || defined PFAP
+            particles[nb].v = parameters.v;
+            #endif
+
+            //Add particle in the good box.
+            GetBox(&bi, &bj, particles[nb].x, particles[nb].y, Lx, Ly, box_size);
+            AddInBox(nb, bi, bj, boxes, neighbors, particles);
+
+            nb++;
+        }
+    }
+
+    //Let's do the same with the gas phase. we have to use periodic boundary conditions
+    for(i=0;i<NsitesGas;i++){
+        if(GasPhase[i]==1){
+            k = i % NxG;
+            j = (i-k) / NxG;
+            #ifndef WALL
+            particles[nb].x = k*a + a * .5 * (j%2);
+            if (particles[nb].x >= Lx) particles[nb].x -= Lx;
+            #else
+            particles[nb].x = wall_size + k*a + a * .5 * (j%2);
+            if (particles[nb].x >= Lx+wall_size) particles[nb].x -= Lx;
+            #endif
+            particles[nb].y = j*h;
+            particles[nb].theta = 2*M_PI*genrand64_real2();
+            particles[nb].fx = 0;
+            particles[nb].fy = 0;
+            #if defined NONE || defined PFAP
+            particles[nb].v = parameters.v;
+            #endif
+
+            //Add particle in the good box.
+            GetBox(&bi, &bj, particles[nb].x, particles[nb].y, Lx, Ly, box_size);
+            AddInBox(nb, bi, bj, boxes, neighbors, particles);
+
+            nb++;
+        }
+    }
+
+    fprintf(parameters.param_file,"Total number of particles placed %ld\n",nb);
+    fprintf(parameters.param_file,"Planned number of particles %ld or %ld\n",Ngas+Nliquid,parameters.N);
+    if(nb!=parameters.N) {
+        fprintf(stderr, "Wrong number of particles placed\n");
+        fflush(stderr);
+        ERROR(4);
+    }
+    free(GasPhase);
+    free(LiquidPhase);
+
+    fflush(parameters.param_file);
+    fflush(stderr);
+}
+#endif
+
 
 void UpdateParticles(particle* particles, param* parameters, double* step
     #ifdef HASHING 

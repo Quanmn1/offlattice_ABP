@@ -73,14 +73,14 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
         param_label = r"$l_p/r_f$"
     elif mode == "pfqs":
         # pad = 2
-        param_label = "r_f"
+        param_label = r"$r_f$"
     # vars = np.linspace(start, end, number)
     rho_gases = np.zeros(number)
     rho_liquids = np.zeros(number)
     rho_gases_std = np.zeros(number)
     rho_liquids_std = np.zeros(number)
 
-    name = f'{test_name}_{vars[0]:.2f}'
+    name = f'{test_name}_{vars[0]:.3f}'
     param_file = f'{name}_param'
     params, N = read_param(param_file)
     tf = params['final_time']
@@ -89,7 +89,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
     translated_distances = np.zeros((number, num_segments, int(segment_time / store_time)))
 
     for (test_num, var) in enumerate(vars):
-        name = f'{test_name}_{var:.2f}'
+        name = f'{test_name}_{var:.3f}'
         param_file = f'{name}_param'
         if data == "sigmaIK":
             data_file = f'{name}_sigmaIK/{name}_sigmaIK_xx'
@@ -138,7 +138,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
             coarsen_number = 1
 
         x_lattice = np.linspace(density_box_raw_size/2, Lx-density_box_raw_size/2, number_of_boxes_x)
-        fine_lattice = np.linspace(0, Lx, 100)
+        fine_lattice = np.linspace(0, Lx, 1000)
         count = 0 # index of the current segment
         row = 0
         one_dim_profiles = []
@@ -188,7 +188,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                         ax.set_xlabel('x')
                         ax.set_ylabel('Density')
                         ax.set_xlim(0, Lx)
-                        ax.scatter(x_lattice_mult, one_dim_profile_mult, s=0.1, c='C2')
+                        ax.scatter(x_lattice_mult, one_dim_profile_mult, s=0.2, c='C2')
 
                         if fit == "tanh":
                             try:
@@ -197,23 +197,25 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                                 else:
                                     popt, pcov, chisquare, dof = fit_tanh(x_lattice_mult, one_dim_profile_mult, one_dim_profile_mult_std, params)
                             except RuntimeError:
-                                print(f"Could not fit a tanh profile to t={segments[count-1]}-{segments[count]}")
+                                print(f"Could not fit a tanh profile to {data} var={var}, t={segments[count-1]}-{segments[count]}")
                             else:
                                 # override the previous segment, so at the end only stores the last segment
                                 rho_gases[test_num] = popt[0]
                                 rho_liquids[test_num] = popt[1]
-                                if bins:
-                                    ax.errorbar(profile_bins_center, profile_values, yerr=profile_values_std, c='C0', label="Time-averaged profile")
-                                ax.plot(fine_lattice, profile(fine_lattice, *popt), c='C1', label="Fitted profile")
-                                if np.all(np.isfinite(pcov)):
-                                    perr = np.sqrt(np.diag(pcov))
-                                    rho_gases_std[test_num] = perr[0]
-                                    rho_liquids_std[test_num] = perr[1]
-                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.4f}\pm {rho_gases_std[test_num]:.4f}, \\rho_l = {rho_liquids[test_num]:.4f}\pm {rho_liquids_std[test_num]:.4f}$')
-                                else:
-                                    ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {popt[0]:.4f}, \\rho_l = {popt[1]:.4f}$')
-                                    ax.text(1.1,0.6, 'Invalid fit', transform=ax.transAxes)
-                                # ax.text(0.85,0.95, f'$\chi^2 / dof = {chisquare:.2f}/{dof}$', transform=ax.transAxes)
+                            
+                            if bins:
+                                ax.errorbar(profile_bins_center, profile_values, yerr=profile_values_std, c='C0', label="Time-averaged profile")
+                            ax.plot(fine_lattice, profile(fine_lattice, *popt), c='C1', label="Fitted profile")
+                            if np.all(np.isfinite(pcov)):
+                                perr = np.sqrt(np.diag(pcov))
+                                rho_gases_std[test_num] = perr[0]
+                                rho_liquids_std[test_num] = perr[1]
+                                ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.4f}\pm {rho_gases_std[test_num]:.4f}, \\rho_l = {rho_liquids[test_num]:.4f}\pm {rho_liquids_std[test_num]:.4f}$')
+                                ax.text(0.4,0.1, f'chisq/dof={chisquare:.2f}/{dof}', transform=ax.transAxes)
+                            else:
+                                ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {popt[0]:.4f}, \\rho_l = {popt[1]:.4f}$')
+                                ax.text(1.1,0.6, 'Invalid fit', transform=ax.transAxes)
+                            # ax.text(0.85,0.95, f'$\chi^2 / dof = {chisquare:.2f}/{dof}$', transform=ax.transAxes)
                         elif fit == "average":
                             # pick out gas and liquid slabs
                             x_liquid_min = 0.4 * Lx
@@ -240,7 +242,7 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
                         ax.legend()
                         plt.savefig(density_folder + '/' + name + f'_{count}.png', dpi=100, bbox_inches='tight')
                         plt.close()
-                        # print(f"Success with {data} at tt={segments[count-1]}-{segments[count]}, var={var}")
+                        print(f"Success with {data} at t={segments[count-1]}-{segments[count]}, var={var}")
                         one_dim_profiles = []
                         one_dim_profile_stds = []
 
@@ -277,9 +279,9 @@ def analyze_slab(test_name, mode, vars, num_segments, bins=False, data="density"
     #     for i in range(len(vars)):
     #         f.write(f"{vars[i]:.2f} \t {rho_gases[i]:.3f} \t {rho_liquids[i]:.3f}\n")
     with open(test_name + f'_slab_{data}', 'w') as f:
-        f.write(f"{param_label} \t rho_gas \t rho_liquid\n")
+        f.write(f"{param_label} \t rho_gas \t rho_liquid \t rho_gas_std \t rho_liquid_std\n")
         for i in range(len(vars)):
-            f.write(f"{vars[i]:.2f} \t {rho_gases[i]:.4f} \t {rho_liquids[i]:.4f}\n")
+            f.write(f"{vars[i]:.3f} \t {rho_gases[i]:.4f} \t {rho_liquids[i]:.4f} \t {rho_gases_std[i]:.4f} \t {rho_liquids_std[i]:.4f} \n")
 
     return vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label, translated_distances
 

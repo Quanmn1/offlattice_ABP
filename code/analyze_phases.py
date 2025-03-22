@@ -12,30 +12,31 @@ mode = sys.argv[2]
 vars = np.array(sys.argv[3].split(),dtype=float)
 num_segments = int(sys.argv[4])
 init = sys.argv[5]
-homo_fit = sys.argv[6]
+pad = int(sys.argv[6])
+homo_fit = sys.argv[7]
 if init == "slab":
-    slab_fit = sys.argv[7]
+    slab_fit = sys.argv[8]
 
-vars_hist, rho_gases_hist, rho_liquids_hist, rho_gases_std_hist, rho_liquids_std_hist, param_label = analyze_histogram(test_name, mode, vars, num_segments, fit=homo_fit)
 if init == "slab":
     vars_slab, rho_gases_slab, rho_liquids_slab, rho_gases_std_slab, rho_liquids_std_slab, param_label, translated_distances = analyze_slab(test_name, mode, vars, num_segments)
+vars_hist, rho_gases_hist, rho_liquids_hist, rho_gases_std_hist, rho_liquids_std_hist, param_label = analyze_histogram(test_name, mode, vars, num_segments, pad, fit=homo_fit)
 
-fig, ax = plt.subplots(figsize = (6,6))
-ax.set_ylabel(param_label)
-ax.set_xlabel('Density')
-# Plot binodal from histogram
-ax.errorbar(rho_gases_hist, vars_hist, xerr=3*rho_gases_std_hist, color='blue', ls='', marker='.', label="Gas (histogram)")
-ax.errorbar(rho_liquids_hist, vars_hist, xerr=3*rho_liquids_std_hist, color='orange', ls='', marker='.', label = "Liquid (histogram)")
-if init == "slab":
-    # Plot binodal from slab
-    ax.errorbar(rho_gases_slab, vars_slab, xerr=3*rho_gases_std_slab, color='purple', ls='', marker='.', label="Gas (slab)")
-    ax.errorbar(rho_liquids_slab, vars_slab, xerr=3*rho_liquids_std_slab, color='red', ls='', marker='.', label="Liquid (slab)")
-ax.set_title("Phase diagram")
-ax.legend()
-ax.set_xlim(left=0)
-# ax.set_ylim(14, 33)
-plt.savefig(test_name + '_phase_diagram.png', dpi=300, bbox_inches='tight')
-plt.close()
+# fig, ax = plt.subplots(figsize = (6,6))
+# ax.set_ylabel(param_label)
+# ax.set_xlabel('Density')
+# # Plot binodal from histogram
+# ax.errorbar(rho_gases_hist, vars_hist, xerr=3*rho_gases_std_hist, color='blue', ls='', marker='.', label="Gas (histogram)")
+# ax.errorbar(rho_liquids_hist, vars_hist, xerr=3*rho_liquids_std_hist, color='orange', ls='', marker='.', label = "Liquid (histogram)")
+# if init == "slab":
+#     # Plot binodal from slab
+#     ax.errorbar(rho_gases_slab, vars_slab, xerr=3*rho_gases_std_slab, color='purple', ls='', marker='.', label="Gas (slab)")
+#     ax.errorbar(rho_liquids_slab, vars_slab, xerr=3*rho_liquids_std_slab, color='red', ls='', marker='.', label="Liquid (slab)")
+# ax.set_title("Phase diagram")
+# ax.legend()
+# ax.set_xlim(left=0)
+# # ax.set_ylim(14, 33)
+# plt.savefig(test_name + '_phase_diagram.png', dpi=300, bbox_inches='tight')
+# plt.close()
 
 if init == "slab":
     # in pfaps_test44: pressures_gas_tot (read from _sigma files) is sum of actual pressures and Qxx. 

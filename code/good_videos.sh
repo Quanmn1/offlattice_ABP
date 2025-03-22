@@ -37,8 +37,8 @@ M=$(awk 'NF==1 {m++} END{print m}' $file)
 pad=$(echo ${#M} | awk '{print $1+1}')
 
 # Calcul of max density
-rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
-
+# rho=$(awk 'BEGIN{rho=0} $4>rho {rho=$4} END{print rho}' $file)
+rho=90
 echo "rho max is $rho"
 
 last=$(awk 'BEGIN{iread=1;i=0;t=0;t_increment='"$timestep"';eps=0.000001;file_out=sprintf("'"$dir"/'data%0'"$pad"'d",i)}

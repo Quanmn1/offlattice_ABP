@@ -1,17 +1,19 @@
 #!/bin/bash
 {
-name_exe="abp_pfaps_harmonic_qsaps_zero_linear"
+name_exe="abp_pfaps_harmonic_qsaps_zero_exp"
 
 # gcc ABP.c -o $name_exe -lm -O3 -Wall
 
 name_all=$1
 dt=0.0001
-Lx=20
-Ly=20
-# liquid_fraction=0.5
+Lx=40
+Ly=40
+# liquid_fraction=0.4
 rho_m=25
-N=4000
+# N=14400
 rmax_pfap=$2
+# rho_small=$3
+# rho_large=$4
 v=5
 lambda=1
 phi=1
@@ -22,9 +24,9 @@ epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
 # rho_small=20
 # rho_large=$(echo "scale=1; 0.6 / $rmax_pfap / $rmax_pfap"  | bc)
 # N=17500
-# rho0=$1
-# N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
-# rho_rf2=0.45
+rho0=9
+N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
+# rho_rf2=0.7
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
 Dr=1
 final_time=1000
@@ -42,7 +44,7 @@ terminal_y=1500
 name="$name_all"_"$rmax_pfap"
 {
     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 4444
     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
 } \

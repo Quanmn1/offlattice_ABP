@@ -1,7 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib
 import sys
+
+plt.rcParams.update({
+    "font.size": 9,
+    "text.usetex": True,            # Use LaTeX for text
+    "font.family": "serif",         # Set font to serif
+    "font.serif": ["Computer Modern"]  # Use the Computer Modern font (LaTeX default)
+})
 
 # Parameters (You need to define or input these values accordingly)
 filename = sys.argv[1]
@@ -28,6 +36,7 @@ for (i, data_file) in enumerate(lst):
     ax.set_xlim(0, Lx)
     ax.set_ylim(0, Ly)
     ax.set_aspect(ratio)
+    ax.tick_params(axis='both', which='both', length=0, labelbottom=False, labelleft=False)
     M = ax.transData.get_matrix()
     xscale = M[0,0]
     yscale = M[1,1]

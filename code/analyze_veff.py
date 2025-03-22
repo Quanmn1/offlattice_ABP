@@ -25,7 +25,7 @@ def analyze_veff(test_name, mode, vars, num_segments):
     number = len(vars)
     rhos = vars
     if mode == "pfap":
-        file = test_name + f'_{rhos[0]}'
+        file = test_name + f'_{rhos[0]:.0f}'
         params, num_particles = read_param(file + '_param')
     else:
         file = test_name + f'_{rhos[0]:.0f}'
@@ -37,14 +37,22 @@ def analyze_veff(test_name, mode, vars, num_segments):
     # Average over EVERY SNAPSHOTS that equilibriated
     vs = np.zeros((number, num_segments))
     v_stds = np.zeros((number, num_segments))
-    # rho_stds = np.zeros_like(rhos)
-    # rho_measureds = np.zeros_like(rhos)
+    vs_avg = np.zeros_like(rhos)
+    vs_stds = np.zeros_like(rhos)
+    rho_stds = np.zeros_like(rhos)
+    rho_measureds = np.zeros_like(rhos)
+    final_time = params['final_time']
+    time_step = params['store_time_interval']
+    N = num_particles * final_time // time_step
+    equi_index = 10
 
     for (ind,rho) in enumerate(rhos):
         if mode == "pfap":
-            file = test_name + f'_{rho:.1f}'
+            file = test_name + f'_{rho:.0f}'
+            params, num_particles = read_param(file + '_param')
         else:
             file = test_name + f'_{rho:.0f}'
+            params, num_particles = read_param(file + '_param')
         
         datafile = file + '_v'
         try:
@@ -54,37 +62,24 @@ def analyze_veff(test_name, mode, vars, num_segments):
             continue
         
         # CONVERGENCE?
-        N = data.shape[0]
         for i in range(num_segments):
             data_i = data[N*i//num_segments:N*(i+1)//num_segments, :]
+            # if simulation has not finished, those segments will has 0
             vs[ind, i] = np.mean(data_i[:,1])
-            v_stds[ind, i] = np.std(data_i[:,1])/np.sqrt(N/num_segments)
-
-        # rho_is = data[:,0]
-        # v_is = data[:,1]
-        # N = len(v_is)
-        # rho_measureds[ind] = np.average(rho_is)
-        # rho_stds[ind] = np.std(rho_is)/np.sqrt(N)
-        # obtain v average
-        # vs[ind] = np.average(v_is)
-        # v_stds[ind] = np.std(v_is)/np.sqrt(N)
-
-    # check consistency
-    # print(rhos)
-    # print(rho_measureds)
-    # print(rho_stds)
-    # print((rhos-rho_measureds)/rho_stds)
-
+            # v_stds[ind, i] = np.std(data_i[:,1])/np.sqrt(N/num_segments) # will not be used
+        
+        vs_rho, = nonzero(vs[ind,:])
+        vs_avg[ind] = np.mean(vs_rho[equi_index:], axis=-1)
+        vs_stds[ind] = np.std(vs_rho[equi_index:], axis=-1)/np.sqrt(len(vs_rho)-equi_index-1)
+    
     # plot v vs rho
     fig, ax = plt.subplots()
     ax.set_xlabel(r'$\rho$')
     ax.set_ylabel(r'$v_{eff}(\rho)$')
-    params, N = read_param(file + '_param')
-    v = params['v']
-    r_pf = params['r_max_pfap']
-    Dr = params['Dr']
-    vs_avg = np.mean(vs[:, 1:], axis=-1)
-    vs_stds = np.std(vs[:, 1:], axis=-1)/np.sqrt(num_segments-1)
+    # params, N = read_param(file + '_param')
+    # v = params['v']
+    # r_pf = params['r_max_pfap']
+    # Dr = params['Dr']
 
     # if mode == "pfap":
     #     v = params['v']
@@ -119,8 +114,14 @@ def analyze_veff(test_name, mode, vars, num_segments):
     #     # v_expecteds = v*np.exp(-lamb*np.tanh((rho_dense-rho_m)/phi))*(1-rho_dense/(1.29/r_pf**2))
     #     # ax.plot(rho_dense, v_expecteds, label=r'$v(\rho)(1-\rho r_f^2/1.29)$')     
 
-    # ax.errorbar(rhos, vs, yerr=v_stds, xerr=rho_stds, ls='', marker='.')
+    # Check for convergence
+    # ax.plot(rhos, vs, ls='', marker='.')
+    # filename = test_name + '_v_convergence.png'
+
+    # After converged, plot the reduced v
     ax.plot(rhos, vs_avg/v_qs, ls='', marker='.', label=r"$v^*(\rho)/v(\rho)$")
+    filename = test_name + '_v_reduced.png'
+
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
     ax.set_title(r"$v_{eff}=\langle \dot{\vec{r}}\cdot \vec{u}\rangle$")
@@ -128,13 +129,13 @@ def analyze_veff(test_name, mode, vars, num_segments):
     start_time = params["next_store_time"]
     # legends = [f"Time {(final_time-start_time)*i//num_segments+start_time}-{(final_time-start_time)*(i+1)//num_segments+start_time}" for i in range(num_segments)]
     ax.legend()
-    plt.savefig(test_name + '_v_reduced.png',  dpi=300, bbox_inches='tight')
+    plt.savefig(filename,  dpi=300, bbox_inches='tight')
 
-    output = test_name + '_veff_data'
+    output = test_name + '_veff_reduced_data'
     with open(output, 'w') as f:
         f.write(f"rho \t v\n")
         for i in range(len(rhos)):
-            f.write(f"{rhos[i]:.2f} \t {vs_avg[i]:.4f} \t {vs_stds[i]:.4f}\n")
+            f.write(f"{rhos[i]:.2f} \t {vs_avg[i]/v_qs[i]:.4f} \t {vs_stds[i]/v_qs[i]:.4f}\n")
 
 if __name__ == "__main__":
     test_name = sys.argv[1]
