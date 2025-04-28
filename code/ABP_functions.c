@@ -874,6 +874,16 @@ double BruteForceDensity(double x, double y, particle* particles, param paramete
 // #endif
 
 #ifdef HASHING
+/*
+boxes is a 2D array of boxes, each box contains the index of the first particle in it.
+We associate with each box a linked list of particles in the box. 
+Forward and backward links (i.e. pointers) are stored in the neighbors array. The actual list is not stored anywhere.
+For particle i: neighbor[2i] is the particle before i, neighbor [2i+1] is the particle after i.
+The "particle" before the first particle in any box is -1.
+Given a particle, can get its box (using GetBox) and all the particles in the same box (using neighbors).
+Given a box, can get all the particles in it (using boxes and neighbors).
+*/
+
 void GetBox(int* bi, int* bj, double x, double y, double Lx, double Ly, double box_size) {
     // Get the box indices from coordinates
     bi[0] = floor( x / box_size);
@@ -959,7 +969,12 @@ void FreeSigmas(double**** sigmaIK, double*** sigmaA, double *** sigmaAprime, do
 
 
 void AddInBox(long index_particle, int bi, int bj, long*** boxes, long** neighbors, particle* particles) {
-    long k = boxes[0][bi][bj]; // Save the previous first particle of the box
+    /*
+    Add the particle with index index_particle to box (bi, bj).
+    The added particle becomes the first one in the linked list associated with the box.
+    The previous first particle of the box becomes the second one in the linked list. (line 4-5 of the function, 1-indexing)
+    */
+    long k = boxes[0][bi][bj]; // Save the previous first particle of the box (which can be -1, which means there is no particle in the box previously)
     boxes[0][bi][bj] = index_particle; // particle index_particle becomes the new first of box
     neighbors[0][2*index_particle] = -1; // index_part doesn't have preceding particle
     neighbors[0][2*index_particle+1] = k; // k becomes succeeding of index_particle
@@ -969,6 +984,11 @@ void AddInBox(long index_particle, int bi, int bj, long*** boxes, long** neighbo
 }
 
 void RemoveFromBox(long index_particle, int bi, int bj, long*** boxes, long** neighbors) {
+    /*
+    Remove the particle with index index_particle from box (bi, bj).
+    The first case: remove the first particle in the linked list associated with the box.
+    The second case: remove a particle that is not the first one in the linked list. Have to change the pointers of the previous and next particles.
+    */
     long next = neighbors[0][2*index_particle+1]; // Store the particle after index_particle
     long prev;
     // check if index_particle is the first one of the box
@@ -1358,7 +1378,7 @@ void MeasureSigmaActive(double** sigmaA, double** sigmaAprime, long* neighbors, 
 
 void MeasureNematic(double** nematic, long* neighbors, particle* particles, long** boxes, param parameters) {
     /*
-    Measure the average active stress tensor in each box by looking at particles in that box 
+    Measure the average nematic tensor in each box by looking at particles in that box 
     and compute their contributions.
     */
     int bi, bj;

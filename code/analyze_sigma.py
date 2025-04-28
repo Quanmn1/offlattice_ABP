@@ -37,7 +37,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
         bulk_right = int(Lx)
 
     if not walls:
-        equi_index = 10 # since (we can verify that) data starts at equilibrium (e.g. t=100)
+        equi_index = 20 # since (we can verify that) data starts at equilibrium (e.g. t=100)
         start_time += equi_index*10
         last_index = 100
     else:
@@ -204,7 +204,7 @@ def analyze_sigma(test_name, mode, vars, num_segments, walls=False, data="sigmaI
     # for bar in (bars1 + bars2 + bars3):
     #     bar.set_alpha(0.5)
         
-    ax.legend(legends,loc=(1.05, 0.1))
+    # ax.legend(legends,loc=(1.05, 0.1))
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
     # ax.axhline(1, ls='--', color='grey')

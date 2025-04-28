@@ -68,7 +68,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
         num_combined = 1
     elif mode == "pfqs":
         # pad = 2
-        param_label = r"$l_p/r_f$"
+        param_label = r"$r_f$"
         num_combined = 1
     # vars = np.linspace(start, end, number)
     rho_gases = np.zeros(number)
@@ -107,18 +107,25 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
         except KeyError:
             box_size = params['r_max'] # old version of code
         tf = params['final_time']
-        try:
+        if 'N' in params:
             N = params['N']
-        except KeyError:
+        elif 'liquid_fraction' in params:
             lf = params['liquid_fraction']
             rsmall = params['rho_small']
             rlarge = params['rho_large']
             N = int(Lx*Ly * rsmall*(1-lf)) + int(Lx*Ly*rlarge*lf)
+        elif 'radius' in params:
+            radius = params['radius']
+            rsmall = params['rho_small']
+            rlarge = params['rho_large']
+            N = int((Lx*Ly-np.pi*radius**2) * rsmall) + int(np.pi*rlarge*radius**2)
+            
         density_box_raw_size = density_box_size * box_size
         density_box_area = density_box_raw_size**2
         number_of_boxes_x = Lx // density_box_raw_size
         number_of_boxes_y = Ly // density_box_raw_size
         params['rho'] = N/Lx/Ly
+        density_threshold = params['rho']*1.1
 
         if mode == "pfap":
             v = params['v']
@@ -170,7 +177,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                         if fit == 'gauss':
                             # fit and plot the profile
                             try:
-                                divider = np.searchsorted(densities_fit, params['rho'])
+                                divider = np.searchsorted(densities_fit, density_threshold)
                                 gas = densities_fit[np.argmax(histogram_fit[:divider])]
                                 liquid = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                                 max_density = densities_fit[-1]
@@ -178,8 +185,8 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                                 # width = min(gas, max_density - liquid)
                                 # gas_width = width
                                 # liquid_width = width
-                                gas_width = (gas-min_density) * 0.8
-                                liquid_width = (max_density - liquid)
+                                gas_width = (gas-min_density) * 0.4
+                                liquid_width = (max_density - liquid) * 0.6
                                 gas_indices = (densities_fit >= gas - gas_width) & (densities_fit <= gas + gas_width)
                                 liquid_indices = (densities_fit >= liquid - liquid_width) & (densities_fit <= liquid + liquid_width)
                                 # popt, pcov, chisquare, dof = fit_gausses(densities_fit[indices], histogram_fit[indices], histogram_std_fit[indices], params, gas, liquid)
@@ -189,7 +196,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                                     raise ValueError("Negative gas density!")
                             except (RuntimeError, OptimizeWarning, ValueError, TypeError) as e:
                                 print(f"could not fit gauss: {e=} for r={var}, t={t}. Taking maximum values instead.")
-                                divider = np.searchsorted(densities_fit, params['rho'])
+                                divider = np.searchsorted(densities_fit, density_threshold)
                                 rho_gases[test_num] = densities_fit[np.argmax(histogram_fit[:divider])]
                                 rho_liquids[test_num] = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                                 ax.set_title(f'$t={segments[count-1]}-{segments[count]}, peaks: \\rho_g = {rho_gases[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}$')

@@ -44,7 +44,7 @@ def analyze_veff(test_name, mode, vars, num_segments):
     final_time = params['final_time']
     time_step = params['store_time_interval']
     N = num_particles * final_time // time_step
-    equi_index = 10
+    equi_index = 20
 
     for (ind,rho) in enumerate(rhos):
         if mode == "pfap":
