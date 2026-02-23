@@ -85,7 +85,7 @@ def histogram_randomizedgrid(snapshot, density_box_size, density_box_origin, siz
     return histogram
 
 
-def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
+def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no"):
     rng = np.random.default_rng()
     number = len(vars)
     param_label = r"$l_p/r_f$"
@@ -115,8 +115,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
         sizes = (Lx, Ly)
         Dr = params['Dr']
         v = params['v']
-        # density_box_size = params['density_box_size']
-        density_box_size = 1
+        density_box_size = 2
 
         try:
             if mode == "pfap":
@@ -158,7 +157,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
         snapshot = np.loadtxt(snapshot_file, skiprows=1)
 
         # Number of random histograms
-        num_histograms = 1600
+        num_histograms = 2000
 
         histograms = np.zeros((num_histograms, max_number))
 
@@ -178,7 +177,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
         ax.set_ylabel('Probability')
         ax.set_xlabel('Density')
 
-        indices = (densities < 65) * (densities > 0)
+        indices = (densities < 65) * (densities >= 0)
         # here is the normalization factor for histogram, disregarding bin rho=0. num_combined should be 1.
         norm = np.sum(histogram_avg[indices]) * binwidth
         histogram_plot = histogram_avg[indices] / norm
@@ -190,22 +189,29 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
         ax.errorbar(densities_fit, 
                     histogram_fit, 
                     yerr=histogram_std_fit, color='C0', label="Grid-averaged histogram")
-        
+        # print(densities_fit[-5:])
+        # print(histogram_fit[-5:])
         
         if fit == 'gauss':
             # fit and plot the profile
             try:
                 divider = np.searchsorted(densities_fit, threshold_density)
+                # print("Shape of densities_fit:")
+                # print(len(densities_fit))
+                # print(densities_fit[divider])
                 gas = densities_fit[np.argmax(histogram_fit[:divider])]
+                gas=0.25
                 liquid = densities_fit[divider+np.argmax(histogram_fit[divider:])]
                 max_density = densities_fit[-1]
-                width = (max_density - liquid)*0.5
-                # gas_indices = (densities_fit >= gas - width) & (densities_fit <= gas + width)
-                liquid_indices = (densities_fit >= liquid - width) & (densities_fit <= liquid + width)
-                liquid_popt, liquid_pcov, chisquare, dof = fit_gauss(densities_fit[liquid_indices], histogram_fit[liquid_indices], histogram_std_fit[liquid_indices], params, liquid, width)
-                # Gas density: know to be 0
-                # gas_popt, gas_pcov, chisquare, dof = fit_gauss(densities_fit[gas_indices], histogram_fit[gas_indices], histogram_std_fit[gas_indices], params, gas, width)
-                
+                min_density = densities_fit[0]
+                liquid_width = (max_density - liquid)*0.5
+                gas_width = 0.5
+                gas_indices = (densities_fit >= gas - gas_width) & (densities_fit <= gas + gas_width)
+                liquid_indices = (densities_fit >= liquid - liquid_width) & (densities_fit <= liquid + liquid_width)
+                liquid_popt, liquid_pcov, chisquare, dof = fit_gauss(densities_fit[liquid_indices], histogram_fit[liquid_indices], histogram_std_fit[liquid_indices], params, liquid, liquid_width)
+                if measure_gas == "yes":
+                    gas_popt, gas_pcov, chisquare, dof = fit_gauss(densities_fit[gas_indices], histogram_fit[gas_indices], histogram_std_fit[gas_indices], params, gas, gas_width)
+                    
                 # if gas_popt[0] < 0:
                 #     raise ValueError("Negative gas density!")
             except (RuntimeError, OptimizeWarning, ValueError) as e:
@@ -217,13 +223,18 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
                 ax.text(0.4,0.9, f'Invalid fit', transform=ax.transAxes)
             else:
                 densities_dense = np.linspace(0, max_density, 1000)
-                ax.plot(densities_dense, profile_single_peak(densities_dense, *liquid_popt), c='C1', label="Gaussian fits")
+                if measure_gas == "yes":
+                    profile = profile_single_peak(densities_dense, *gas_popt) + profile_single_peak(densities_dense, *liquid_popt)
+                else:
+                    profile = profile_single_peak(densities_dense, *liquid_popt)
+                ax.plot(densities_dense, profile, c='C1', label="Gaussian fits")
             # if np.all(np.isfinite(gas_pcov)) and np.all(np.isfinite(liquid_pcov)):
-                rho_gases[test_num] = 0
+                if measure_gas == "yes":
+                    rho_gases[test_num] = gas_popt[0]
+                    rho_gases_std[test_num] = np.sqrt(np.diag(gas_pcov))[0]
                 rho_liquids[test_num] = liquid_popt[0]
-                rho_gases_std[test_num] = 0
                 rho_liquids_std[test_num] = np.sqrt(np.diag(liquid_pcov))[0]
-                ax.set_title(f'$\\rho_g = {rho_gases[test_num]:.3f}\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\pm {rho_liquids_std[test_num]:.3f}$')
+                ax.set_title(f'$\\rho_g = {rho_gases[test_num]:.3f}\\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\\pm {rho_liquids_std[test_num]:.3f}$')
 
                             # else:
                             #     rho_gases[test_num] = np.nan
@@ -250,24 +261,30 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss'):
     # print(rho_gases)
     # print(rho_liquids)
 
-    with open(f'{test_name}_histo_phase_diagram_frozen', 'w') as f:
+    if measure_gas == "yes":
+        save_file = f'{test_name}_histo_phase_diagram_frozen_gas'
+    else:
+        save_file = f'{test_name}_histo_phase_diagram_frozen'
+
+    with open(save_file, 'w') as f:
         f.write(f"{param_label} \t rho_gas \t rho_liquid \t rho_gas_std \t rho_liquid_std \n")
         for i in range(len(vars)):
             f.write(f"{vars[i]:.3f}\t{rho_gases[i]:.3f}\t{rho_liquids[i]:.3f}\t{rho_gases_std[i]:.3f}\t{rho_liquids_std[i]:.3f}\n")
 
-    return vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label
+    return vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label, save_file
 
 
 if __name__ == "__main__":
     """
-    usage: python analyze_histogram_randomizedgrid.py test_name "r1 r2 ... rN" pad
+    usage: python analyze_histogram_randomizedgrid.py test_name "r1 r2 ... rN" pad gas?
     """
     test_name = sys.argv[1]
     vars = np.array(sys.argv[2].split(),dtype=float)
     pad = int(sys.argv[3])
+    gas = sys.argv[4]
     mode = 'pfqs'
     fit = 'gauss'
-    vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label = analyze_histogram(test_name, mode, vars, pad, fit=fit)
+    vars, rho_gases, rho_liquids, rho_gases_std, rho_liquids_std, param_label, save_file = analyze_histogram(test_name, mode, vars, pad, fit=fit, measure_gas=gas)
 
     fig, ax = plt.subplots(figsize = (6,6))
     ax.set_ylabel(param_label)
@@ -275,5 +292,5 @@ if __name__ == "__main__":
     ax.errorbar(rho_gases, vars, xerr=rho_gases_std, color='C0', ls='', marker='.')
     ax.errorbar(rho_liquids, vars, xerr=rho_liquids_std, color='C1', ls='', marker='.')
     ax.set_title("Histogram phase diagram")
-    plt.savefig(f'{test_name}_histo_phase_diagram_frozen.png', dpi=300, bbox_inches='tight')
+    plt.savefig(save_file + '.png', dpi=300, bbox_inches='tight')
     plt.close()

@@ -24,27 +24,29 @@ epsilon=$(echo "scale=1; 100 * $rmax_pfap"  | bc)
 # rho_small=20
 # rho_large=$(echo "scale=1; 0.6 / $rmax_pfap / $rmax_pfap"  | bc)
 # N=17500
-rho0=9
+rho0=9.6
+# rho0_ideal=11
+# rho0=$(echo "scale=10; e=(4*0.6)/(3.14*($rmax_pfap+0.001)^2); if (e < $rho0_ideal) print e else print $rho0_ideal" | bc)
 N=$(echo "scale=0; $rho0 * $Ly * $Lx"  | bc)
 # rho_rf2=0.7
 # N=$(echo "scale=0; $rho_rf2 * $Ly * $Lx / $rmax_pfap / $rmax_pfap"  | bc)
 Dr=1
 final_time=1000
-density_box_size=2
+density_box_size=1
 ratio=$(echo "scale=1; $Ly / $Lx"  | bc)
-timestep=10
+timestep=2
 data_store=$timestep
-update_histo=2
+update_histo=1
 histo_store=$timestep
 start_time=0
 resume="no"
-terminal_x=1500
-terminal_y=1500
+terminal_x=2000
+terminal_y=2000
 
 name="$name_all"_"$rmax_pfap"
 {
     time ./$name_exe $dt $N $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
-    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 4444
+    $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 7777
     # time ./$name_exe $dt $rho_small $rho_large $liquid_fraction $Lx $Ly $rho_m $v $lambda $phi $rmax_qsap $epsilon $rmax_pfap $Dr $final_time \
     # $density_box_size $start_time $update_histo $start_time $histo_store $start_time $data_store $name $resume 1234
 } \

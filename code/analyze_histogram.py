@@ -125,7 +125,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
         number_of_boxes_x = Lx // density_box_raw_size
         number_of_boxes_y = Ly // density_box_raw_size
         params['rho'] = N/Lx/Ly
-        density_threshold = params['rho']*1.1
+        density_threshold = params['rho'] * 1.8
 
         if mode == "pfap":
             v = params['v']
@@ -185,8 +185,8 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                                 # width = min(gas, max_density - liquid)
                                 # gas_width = width
                                 # liquid_width = width
-                                gas_width = (gas-min_density) * 0.4
-                                liquid_width = (max_density - liquid) * 0.6
+                                gas_width = (gas-min_density) * 0.7
+                                liquid_width = (max_density - liquid) * 0.7
                                 gas_indices = (densities_fit >= gas - gas_width) & (densities_fit <= gas + gas_width)
                                 liquid_indices = (densities_fit >= liquid - liquid_width) & (densities_fit <= liquid + liquid_width)
                                 # popt, pcov, chisquare, dof = fit_gausses(densities_fit[indices], histogram_fit[indices], histogram_std_fit[indices], params, gas, liquid)
