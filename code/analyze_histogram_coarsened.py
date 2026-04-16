@@ -9,43 +9,8 @@ import warnings
 warnings.simplefilter("error", OptimizeWarning)
 
 """
-Take the last histogram of multiple simulations and add them together.
-Used for condensed phase, where histogram will not get averaged out because everything is stationary.
+Coarsen the density histogram into larger boxes
 """
-
-def profile(x, rho_gas, rho_liquid, liquid_ratio, width_gas, width_liquid):
-    return (1-liquid_ratio) * stats.norm.pdf(x, rho_gas, width_gas) + liquid_ratio * stats.norm.pdf(x, rho_liquid, width_liquid)
-
-def profile_single_peak(x, rho, width, amplitude):
-    return amplitude * stats.norm.pdf(x, rho, width)
-
-def fit_gauss(densities_coarse, histogram_mult, histogram_mult_std, params, rho0, width0):
-    popt, pcov, infodict, mesg, ier = optimize.curve_fit(profile_single_peak, densities_coarse, histogram_mult,
-                                                         p0=(rho0, width0, 0.5), sigma=histogram_mult_std, absolute_sigma=True,
-                                                         full_output=True)
-    chisquare = np.sum(np.square(infodict['fvec']))
-    dof = len(densities_coarse) - 2
-    return popt, pcov, chisquare, dof
-
-def fit_gausses(densities_coarse, histogram_mult, histogram_mult_std, params, rho_gas0=False, rho_liquid0=False):
-    if not rho_gas0:
-        rho_gas0 = params['rho'] * 0.6
-    if not rho_liquid0:
-        rho_liquid0 = params['rho'] * 1.6
-    liquid_ratio0 = 0.5
-    width_gas0 = params['rho'] * 0.1
-    width_liquid0 = params['rho'] * 0.1
-    # rho_mid0 = params['rho']
-    # width_mid0 = params['rho'] * 0.1
-    # mid_ratio0 = 0.05
-
-    # histogram_std_fit, densities_fit, histogram_fit = nonzero(histogram_mult_std, densities_coarse, histogram_mult)
-    popt, pcov, infodict, mesg, ier = optimize.curve_fit(profile, densities_coarse, histogram_mult,
-                                                         p0=(rho_gas0,rho_liquid0,liquid_ratio0,width_gas0,width_liquid0),
-                                                         full_output=True)
-    chisquare = np.sum(np.square(infodict['fvec']))
-    dof = len(densities_coarse) - 5
-    return popt, pcov, chisquare, dof
 
 def process_histograms(histograms):
     """
@@ -56,39 +21,41 @@ def process_histograms(histograms):
     histogram_mult_std = np.std(histogram_mults, axis=0)
     return histogram_mult, histogram_mult_std
 
-def analyze_histogram(var, coarsen_number, fit='gauss'):
-    test_name = f"pfqs_condensation_test10.1_{var}"
-
-    param_file = f"{test_name}_param"
+def analyze_histogram_coarsen(test_name, vars, coarsen_number, pad):
+    param_file = f"{test_name}_{vars[0]:.{pad}f}_param"
     try:
         params, N = read_param(param_file)
     except FileNotFoundError:
         print("File not found")
-        print(var)
+        print(vars[0])
 
     Lx = params['Lx']
     Ly = params['Ly']
-    Dr = params['Dr']
-    v = params['v']
     density_box_size = params['density_box_size']
     box_size = params['r_max_qsap']
-    box_size_pfap = params['r_max_pfap']
     density_box_raw_size = density_box_size * box_size
     density_box_area = density_box_raw_size**2
     number_of_boxes_x = Lx // density_box_raw_size // coarsen_number
     number_of_boxes_y = Ly // density_box_raw_size // coarsen_number
-    threshold_density = 25
 
     # Coarsened histograms:
     new_density_box_area = density_box_area * coarsen_number**2
-    max_number = int(new_density_box_area * 3 / box_size_pfap**2)
-    densities = np.arange(0, max_number+1, 1) / new_density_box_area
-    histogram = np.zeros(max_number+1)
     heatmap = np.zeros((number_of_boxes_y, number_of_boxes_x))
 
-    for i in range(1,4):
-        data_file = f"pfqs_condensation_test10.{i}_{var}_density"
-        output_file = f"pfqs_condensation_test10.{i}_{var}_histogram_coarsened"
+    for var in vars:
+        param_file = f"{test_name}_{var:.{pad}f}_param"
+        try:
+            params, N = read_param(param_file)
+        except FileNotFoundError:
+            print("File not found")
+            print(var)
+        box_size_pfap = params['r_max_pfap']
+        max_number = int(new_density_box_area * 3 / box_size_pfap**2)
+        densities = np.arange(0, max_number+1, 1) / new_density_box_area
+        histogram = np.zeros(max_number+1)
+
+        data_file = f"{test_name}_{var:.{pad}f}_density"
+        output_file = f"{test_name}_{var:.{pad}f}_histogram_coarsened_{coarsen_number}"
         with open(output_file, 'w') as f_output:
             # if this function is used to analyze sigmas profile: the data read in need to be coarsened, 
             # since the average is over cell of size 1
@@ -107,7 +74,7 @@ def analyze_histogram(var, coarsen_number, fit='gauss'):
                         
                     elif len(line) > 1:
                         try:
-                            heatmap[int(row), :] += np.array(coarsen(line, coarsen_number))/coarsen_number
+                            heatmap[int(row), :] += np.array(coarsen(line, coarsen_number))
                         except ValueError:
                             print(f"invalid density row {row} at var={var}, t={t}")
                             print(np.array(coarsen(line, coarsen_number))/coarsen_number)
@@ -122,13 +89,11 @@ def analyze_histogram(var, coarsen_number, fit='gauss'):
                         f_output.write(f"{t}\n")
                         for j in range(number_of_boxes_y):
                             for k in range(number_of_boxes_x):
-                                index = np.searchsorted(densities, heatmap[j,k])
-                                histogram[index] += 1
+                                histogram[int(heatmap[j,k])] += 1
 
                         for j in range(max_number):
                             f_output.write(f"{densities[j]} {histogram[j]}\n")
                         f_output.write("\n")
-
 
     # rho_liquids, rho_gases, vars, rho_gases_std, rho_liquids_std = nonzero(rho_liquids, rho_gases, vars, rho_gases_std, rho_liquids_std)
     # Pes = v/Dr/vars
@@ -146,9 +111,13 @@ def analyze_histogram(var, coarsen_number, fit='gauss'):
 
 
 if __name__ == "__main__":
+    test_name = sys.argv[1]
+    vars = np.array(sys.argv[2].split(),dtype=float)
+    coarsen_number = int(sys.argv[3])
+    pad = int(sys.argv[4])
     # vars = np.array(sys.argv[1].split(),dtype=float)
     # fit = sys.argv[2]
-    analyze_histogram(0.15, 2)
+    analyze_histogram_coarsen(test_name, vars, coarsen_number, pad)
 
     # fig, ax = plt.subplots(figsize = (6,6))
     # ax.set_ylabel(param_label)

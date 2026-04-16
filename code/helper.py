@@ -48,7 +48,7 @@ def translate_pbc(x_lattice, Lx, distance):
 
 def coarsen(array, num_combined, binwidth=1, normalize=False):
     """
-    Each element of the returned array is average of the next num_combined elements of array.
+    Each element of the returned array is sum of the next num_combined elements of array.
     If normalize=True, normalize the array to 1/binwidth (to fit with continuous distributions).
     """
     if num_combined == 1:
@@ -60,9 +60,9 @@ def coarsen(array, num_combined, binwidth=1, normalize=False):
     new_len = original_len//num_combined
     result = np.zeros( new_len )
     for i in range(new_len):
-        result[i] = np.average(array[i*num_combined:(i+1)*num_combined])
+        result[i] = np.sum(array[i*num_combined:(i+1)*num_combined])
     if normalize:
-        return result/np.sum(result)/binwidth
+        return result/np.sum(result)/binwidth/num_combined
     else:
         return result
     

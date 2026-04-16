@@ -223,12 +223,13 @@ TRY {
             last_moved = t;
         } 
         else {
-            if (t - last_moved > 1) {
+            if (t - last_moved > 10) {
                 fprintf(parameters.param_file, "All particles stopped at time %lg!\n", t);
                 fflush(parameters.param_file);
+                last_moved = t;
                 // StorePositions(t, parameters, particles);
                 // break;    
-                parameters.dt = 1;
+                // parameters.dt = 1;
             }        
         }
         #endif

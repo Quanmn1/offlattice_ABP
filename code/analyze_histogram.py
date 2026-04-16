@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from scipy import optimize, stats, signal
 from scipy.optimize import OptimizeWarning
 from matplotlib import pyplot as plt
@@ -56,7 +57,7 @@ def process_histograms(histograms):
     histogram_mult_std = np.std(histogram_mults, axis=0)
     return histogram_mult, histogram_mult_std
 
-def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
+def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss', coarsen_number=1):
     number = len(vars)
     if mode == "qsap":
         # pad = 1
@@ -79,7 +80,8 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
     for (test_num, var) in enumerate(vars):
         name = test_name + f'_{var:.{pad}f}'
         param_file = name + '_param'
-        histogram_file = name + '_histogram'
+        histogram_file = name + f'_histogram'
+        # histogram_file = name + f'_histogram_coarsened_{coarsen_number}'
 
         # Read parameters into dict params, with string values
         try:
@@ -120,20 +122,21 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
             rlarge = params['rho_large']
             N = int((Lx*Ly-np.pi*radius**2) * rsmall) + int(np.pi*rlarge*radius**2)
             
-        density_box_raw_size = density_box_size * box_size
+        density_box_raw_size = density_box_size * box_size * coarsen_number
         density_box_area = density_box_raw_size**2
         number_of_boxes_x = Lx // density_box_raw_size
         number_of_boxes_y = Ly // density_box_raw_size
         params['rho'] = N/Lx/Ly
-        density_threshold = params['rho'] * 1.8
+        rho_m = params['rho_m']
+        density_threshold = min(rho_m/2, 0.6*4/3.14/var**2)
 
         if mode == "pfap":
             v = params['v']
             max_number = int(density_box_area * 4 / rmax**2)
         elif mode == "qsap":
-            max_number = int(params["rho_m"] * density_box_area * 10)
+            max_number = int(rho_m * density_box_area * 10)
         elif mode == "pfqs":
-            max_number = int(density_box_area * 4 / box_size_pfap**2)
+            max_number = int(density_box_area) * math.ceil(3 / box_size_pfap**2)
 
         segments = np.linspace(0, tf, num_segments+1)
 
@@ -209,9 +212,9 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                                 rho_liquids[test_num] = liquid_popt[0]
                                 gas_perr = np.sqrt(np.diag(gas_pcov))
                                 liquid_perr = np.sqrt(np.diag(liquid_pcov))
-                                rho_gases_std[test_num] = gas_perr[0]
-                                rho_liquids_std[test_num] = liquid_perr[0]
-                                ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.3f}\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\pm {rho_liquids_std[test_num]:.3f}$')
+                                rho_gases_std[test_num] = gas_popt[1]
+                                rho_liquids_std[test_num] = liquid_popt[1]
+                                ax.set_title(f'$t={segments[count-1]}-{segments[count]}, \\rho_g = {rho_gases[test_num]:.3f}\\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\\pm {rho_liquids_std[test_num]:.3f}$')
 
                             # else:
                             #     rho_gases[test_num] = np.nan
@@ -235,13 +238,17 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
                         histograms = []
 
                 elif len(line) > 1:
-                    histogram[row] = line[1]
+                    try:
+                        histogram[row] = line[1]
+                    except IndexError:
+                        print(f"invalid density row {row} at var={var}, t={t}")
+                        raise
                     row += 1
                     # when have to use density file:
                     # for value in line:
                     #     histogram[int(value)] += 1
                 else:
-                    histogram_coarsened = coarsen(histogram, num_combined, binwidth, normalize=True)
+                    histogram_coarsened = coarsen(histogram, num_combined, binwidth, normalize=True) / num_combined
                     histograms.append(histogram_coarsened)
                     histogram.fill(0)
 
@@ -258,7 +265,7 @@ def analyze_histogram(test_name, mode, vars, num_segments, pad, fit='gauss'):
     # print(rho_gases)
     # print(rho_liquids)
 
-    with open(test_name + '_histo_phase_diagram', 'w') as f:
+    with open(test_name + f'_histo_phase_diagram', 'w') as f:
         f.write(f"{param_label} \t rho_gas \t rho_liquid \t rho_gas_std \t rho_liquid_std \n")
         for i in range(len(vars)):
             f.write(f"{vars[i]:.3f}\t{rho_gases[i]:.3f}\t{rho_liquids[i]:.3f}\t{rho_gases_std[i]:.3f}\t{rho_liquids_std[i]:.3f}\n")

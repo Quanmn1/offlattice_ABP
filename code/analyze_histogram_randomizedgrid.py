@@ -115,7 +115,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
         sizes = (Lx, Ly)
         Dr = params['Dr']
         v = params['v']
-        density_box_size = 2
+        density_box_size = 4
 
         try:
             if mode == "pfap":
@@ -143,7 +143,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
         params['rho'] = N/Lx/Ly
         rho_m = params['rho_m']
         max_density = rho_m * 3
-        threshold_density = rho_m
+        threshold_density = rho_m/2
         max_number = int(max_density*density_box_area)
 
         densities = np.arange(0, max_number, 1) / density_box_area
@@ -177,7 +177,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
         ax.set_ylabel('Probability')
         ax.set_xlabel('Density')
 
-        indices = (densities < 65) * (densities >= 0)
+        indices = (densities < 70) * (densities >= 0)
         # here is the normalization factor for histogram, disregarding bin rho=0. num_combined should be 1.
         norm = np.sum(histogram_avg[indices]) * binwidth
         histogram_plot = histogram_avg[indices] / norm
@@ -186,9 +186,14 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
 
         histogram_fit, histogram_std_fit, densities_fit = nonzero(histogram_plot, histogram_std_plot, densities_plot)
 
-        ax.errorbar(densities_fit, 
+        if measure_gas == "yes":
+            ax.errorbar(densities_fit, 
                     histogram_fit, 
                     yerr=histogram_std_fit, color='C0', label="Grid-averaged histogram")
+        else:
+            ax.errorbar(densities_fit[1:], 
+                    histogram_fit[1:], 
+                    yerr=histogram_std_fit[1:], color='C0', label="Grid-averaged histogram")
         # print(densities_fit[-5:])
         # print(histogram_fit[-5:])
         
@@ -205,7 +210,7 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
                 max_density = densities_fit[-1]
                 min_density = densities_fit[0]
                 liquid_width = (max_density - liquid)*0.5
-                gas_width = 0.5
+                gas_width = 0.25
                 gas_indices = (densities_fit >= gas - gas_width) & (densities_fit <= gas + gas_width)
                 liquid_indices = (densities_fit >= liquid - liquid_width) & (densities_fit <= liquid + liquid_width)
                 liquid_popt, liquid_pcov, chisquare, dof = fit_gauss(densities_fit[liquid_indices], histogram_fit[liquid_indices], histogram_std_fit[liquid_indices], params, liquid, liquid_width)
@@ -231,9 +236,9 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
             # if np.all(np.isfinite(gas_pcov)) and np.all(np.isfinite(liquid_pcov)):
                 if measure_gas == "yes":
                     rho_gases[test_num] = gas_popt[0]
-                    rho_gases_std[test_num] = np.sqrt(np.diag(gas_pcov))[0]
+                    rho_gases_std[test_num] = gas_popt[1] # Use width of dist as fluctuations
                 rho_liquids[test_num] = liquid_popt[0]
-                rho_liquids_std[test_num] = np.sqrt(np.diag(liquid_pcov))[0]
+                rho_liquids_std[test_num] = liquid_popt[1]
                 ax.set_title(f'$\\rho_g = {rho_gases[test_num]:.3f}\\pm {rho_gases_std[test_num]:.3f}, \\rho_l = {rho_liquids[test_num]:.3f}\\pm {rho_liquids_std[test_num]:.3f}$')
 
                             # else:
@@ -254,6 +259,12 @@ def analyze_histogram(test_name, mode, vars, pad, fit='gauss', measure_gas="no")
         ax.grid()
         plt.savefig(histogram_folder + '/' + f'{var}.png', dpi=100, bbox_inches='tight')
         plt.close()
+
+        # print the histogram to the same folder as the plot
+        with open(histogram_folder + '/' + f'{var}_histogram.txt', 'w') as f:
+            f.write("Density\tHistogram\tHistogram_std\n")
+            for i in range(len(densities_fit)):
+                f.write(f"{densities_fit[i]:.3f}\t{histogram_fit[i]:.6f}\t{histogram_std_fit[i]:.6f}\n")
 
 
     rho_liquids, rho_gases, vars, rho_gases_std, rho_liquids_std = nonzero(rho_liquids, rho_gases, vars, rho_gases_std, rho_liquids_std)
